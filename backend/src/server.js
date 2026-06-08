@@ -27,6 +27,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 // ── Create Express App ──────────────────────────────────────────────────────
 
 const app = express();
+app.set('trust proxy', 1);
 
 // ── Security Middleware ─────────────────────────────────────────────────────
 
