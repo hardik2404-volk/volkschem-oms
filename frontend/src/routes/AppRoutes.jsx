@@ -16,7 +16,7 @@ import AdminOrdersView from '../pages/admin/AdminOrdersView';
 
 // Employee Portal
 import EmployeePortal from '../portals/EmployeePortal';
-import EmployeeDashboard from '../pages/employee/EmployeeDashboard';
+
 import MyOrders from '../pages/employee/MyOrders';
 import BulkPriceSearch from '../pages/employee/BulkPriceSearch';
 import ProductQuotationWizard from '../quotation/ProductQuotationWizard';
