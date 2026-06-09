@@ -38,7 +38,7 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     // Dynamic Components
     const dynamicComponents = new Set();
     quotationData.rows.forEach(row => {
-      row.components.forEach(comp => {
+      (row.components || []).forEach(comp => {
         if (comp.is_checked && !comp.isBulkMaterial && !comp.component_name.toLowerCase().includes('bulk material')) {
           dynamicComponents.add(comp.component_name);
         }
@@ -142,7 +142,7 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     
     if (!isFactoryView) {
       rowData['bulk_material_cost_per_pcs'] = row.bulk_material_cost_per_pcs || 0;
-      row.components.forEach(c => {
+      (row.components || []).forEach(c => {
         rowData[`comp_${c.component_name}`] = c.applied_rate || 0;
       });
       rowData['row_amount'] = row.row_amount || 0;
@@ -164,6 +164,7 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     }
 
     // Determine row height (based on product text which can be multiline)
+    const productName = row.products?.product_name || row.product?.product_name || row.product_name || quotationData.products?.product_name || quotationData.material_name || 'N/A';
     let rowHeight = 30;
     if (prodText.includes('\n') || prodText.length > 25) {
       rowHeight = 40;
