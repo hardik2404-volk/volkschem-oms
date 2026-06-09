@@ -130,7 +130,6 @@ async function createQuotation(quotationData, userId) {
       material_rate: quotationData.material_rate || null,
       material_unit: quotationData.material_unit || null,
       quantity: quotationData.quantity || null,
-      gst_rate: quotationData.gst_rate || null,
       subtotal: quotationData.subtotal || 0,
       total_gst: quotationData.total_gst || 0,
       grand_total: quotationData.grand_total || 0,
@@ -234,7 +233,7 @@ async function updateQuotation(id, updates, userId, userRole) {
     'billing_name', 'transport_name', 'destination', 'label_company_name',
     'name_on_label', 'quotation_date', 'notes', 'employee_name',
     'product_id', 'product_order_type', 'subtotal', 'total_gst', 'grand_total',
-    'material_name', 'material_rate', 'material_unit', 'quantity', 'gst_rate'
+    'material_name', 'material_rate', 'material_unit', 'quantity'
   ];
   const headerUpdate = { version: newVersion, status: 'draft' };
   for (const key of headerFields) {
