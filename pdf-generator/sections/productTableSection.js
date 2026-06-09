@@ -163,8 +163,7 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
       }
     }
 
-    // Determine row height (based on product text which can be multiline)
-    const productName = row.products?.product_name || row.product?.product_name || row.product_name || quotationData.products?.product_name || quotationData.material_name || 'N/A';
+    // Determine row height (based on product text which can be multiline )
     let rowHeight = 30;
     if (prodText.includes('\n') || prodText.length > 25) {
       rowHeight = 40;
