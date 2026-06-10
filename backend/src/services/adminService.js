@@ -288,7 +288,8 @@ async function getAllOrders(filters = {}) {
       id, current_status, factory_note, dispatch_note, dispatched_at, created_at, updated_at,
       quotations (
         id, quotation_number, order_type, product_order_type, customer_name,
-        employee_name, grand_total, subtotal, total_gst, status, transport_name, destination, created_at
+        employee_name, grand_total, subtotal, total_gst, status, transport_name, destination, created_at,
+        quotation_rows ( product_id, packing_type, products ( product_name, product_code ) )
       ),
       lr_attachments ( id, file_url )
     `)

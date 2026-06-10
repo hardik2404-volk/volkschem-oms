@@ -71,6 +71,40 @@ function generateCustomerQuotationPDF(quotationData) {
       // 3. Product Table
       currentY = generateProductTable(doc, quotationData, currentY, false);
 
+      if (quotationData.rows && quotationData.rows.length > 0) {
+        const labelDataArray = [];
+        quotationData.rows.forEach(snapshotRow => {
+          if (snapshotRow.label_snapshot) {
+            const snap = snapshotRow.label_snapshot;
+            
+            // Only show the block if it should be included
+            if (!snap.include_in_quotation && !snap.is_new_batch) return;
+
+            const isNewBatch = snap.is_new_batch;
+            
+            labelDataArray.push({
+              product_name: snapshotRow.products?.product_name || '-',
+              pack_type: snap.pack_type,
+              pack_size: snap.pack_size,
+              open_stock: snap.open_stock,
+              make: isNewBatch ? snap.make_quantity : 0, 
+              total_stock: snap.total_stock, 
+              used: snap.used_to_date,
+              closing_stock: snap.closing_stock,
+              rate: isNewBatch ? snap.rate_per_label : 0,
+              amount: isNewBatch ? snap.current_batch_amount : 0,
+              gst: isNewBatch ? snap.current_batch_gst : 0,
+              total_with_gst: isNewBatch ? snap.current_batch_total : 0,
+              is_new_batch: isNewBatch
+            });
+          }
+        });
+        
+        if (labelDataArray.length > 0) {
+          currentY = generateLabelInventorySection(doc, labelDataArray, currentY, false);
+        }
+      }
+
       // Check if we need a new page for totals & terms
       if (currentY > doc.page.height - 150) {
         doc.addPage();
@@ -78,10 +112,10 @@ function generateCustomerQuotationPDF(quotationData) {
       }
 
       // 5. Totals & Bank Details
-      generateTotalsSection(doc, quotationData, currentY);
+      currentY = generateTotalsSection(doc, quotationData, currentY);
 
       // 6. Terms & Conditions
-      generateTermsSection(doc, currentY);
+      currentY = generateTermsSection(doc, currentY);
 
       // 7. Add Page Numbers
       const pages = doc.bufferedPageRange();
@@ -94,7 +128,7 @@ function generateCustomerQuotationPDF(quotationData) {
             `Page ${i + 1} of ${pages.count}`,
             0,
             doc.page.height - 20,
-            { align: 'center' }
+            { align: 'right', width: doc.page.width - 30 }
           );
       }
 

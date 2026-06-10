@@ -3,7 +3,6 @@
 // ============================================================================
 
 const path = require('path');
-const { formatIndianDate } = require('../utils/dateFormatter');
 
 /**
  * Generate the top header section of the PDF.
@@ -12,68 +11,53 @@ const { formatIndianDate } = require('../utils/dateFormatter');
  * @param {Object} quotationData
  */
 function generateHeader(doc, quotationData) {
+  const pageWidth = doc.page.width;
   const margin = 30;
-  const rightMargin = doc.page.width - 30;
-  let currentY = 30;
+  let currentY = 0; // Start right at the top
 
-  // ── Top Header: Logo + Company + Address ──────────────────────────────────
-  
-  // Left side: Logo
+  // ── Top Header Bar ──────────────────────────────────────────────────────
+  const headerHeight = 100;
+
+  // Background Dark Green Bar
+  doc.rect(0, currentY, pageWidth, headerHeight).fill('#1B5E20');
+
+  // Left side: Logo Box
+  // Draw a white box for the logo to sit inside
+  const logoBoxWidth = 255;
+  const logoBoxHeight = 65;
+  doc.rect(margin, currentY + 10, logoBoxWidth, logoBoxHeight).fill('#FFFFFF');
+
   const logoPath = path.resolve(__dirname, '../../assets/logo/fix-site-logo.png');
   try {
-    doc.image(logoPath, margin, currentY - 10, { height: 60 });
+    // Fit logo perfectly in the white box
+    doc.image(logoPath, margin, currentY + 10, { width: logoBoxWidth, height: logoBoxHeight });
   } catch (err) {
-    // If logo not found, just print placeholder text
-    doc.font('NotoSans-Bold').fontSize(16).fillColor('#D32F2F').text('VOLKSCHEM', margin, currentY);
+    doc.font('NotoSans-Bold').fontSize(12).fillColor('#204938').text('LOGO', margin + 10, currentY + 25);
   }
 
   // Right side: Address
-  doc.font('NotoSans').fontSize(8).fillColor('#333333');
-  const addressLines = [
-    'Corporate Office: 806-808 C Block 8th Floor',
-    'Signature-2 Business Park, Sanand Cross Road',
-    'Off SG Highway, Ahmedabad 382210 Gujarat',
-    'GST: 24AAFCV2675N1ZU | CIN: U24100GJ2015PTC084879',
-    'www.volkschem.com | +91 98250 12345'
-  ];
-  
-  addressLines.forEach((line, i) => {
-    // We want to align this to the right properly without wrapping
-    doc.text(line, rightMargin - 250, currentY + 5 + (i * 12), { width: 250, align: 'right' });
-  });
+  doc.font('NotoSans').fontSize(8).fillColor('#FFFFFF');
+  const rightMargin = pageWidth - margin;
 
-  currentY += 65;
+  // Custom alignment for address text within the dark bar
+  const addressText = "Phone: +91 9574009098   |   Email: info@volkschem.com\nCORPORATE OFFICE:\nC/806-807-808, SIGNATURE 2, BUSINESS PARK,\nSANAND CROSS ROAD, OPP. HOTEL SABRA CROSSWAY,\nAHMEDABAD - 382210, GUJARAT (INDIA)\nGST NO: 24AAFCV2675N1ZU   |   CIN NO: U24100GJ2015PTC084879";
 
-  // Green Divider Line
-  doc.moveTo(margin, currentY)
-     .lineTo(rightMargin, currentY)
-     .lineWidth(1.5)
-     .strokeColor('#1B5E20')
-     .stroke();
-     
-  currentY += 20;
+  doc.text(addressText, rightMargin - 300, currentY + 12, { width: 300, align: 'right', lineGap: 2 });
 
-  // ── Center: QUOTATION ───────────────────────────────────────────────────
-  
-  doc.font('NotoSans-Bold').fontSize(18).fillColor('#333333');
-  doc.text('QUOTATION', 0, currentY, { align: 'center', width: doc.page.width });
-  
-  currentY += 30;
+  currentY += headerHeight;
 
-  // ── Center-ish: Quote Details ───────────────────────────────────────────
-  
-  const detailX = doc.page.width / 2 - 60;
-  
-  doc.font('NotoSans').fontSize(9).fillColor('#333333');
-  doc.text('Quote No     :', detailX, currentY);
-  doc.text(quotationData.quotation_number || 'N/A', detailX + 70, currentY);
-  
-  doc.text('Date             :', detailX, currentY + 15);
-  doc.text(formatIndianDate(quotationData.quotation_date), detailX + 70, currentY + 15);
+  // ── QUOTATION Title Bar ─────────────────────────────────────────────────
+  const titleBarHeight = 30;
+  doc.rect(0, currentY, pageWidth, titleBarHeight).fill('#EAEAEA');
 
-  currentY += 45;
+  doc.font('NotoSans-Bold').fontSize(16).fillColor('#333333');
+  // Center text perfectly in the gray bar
+  doc.text('QUOTATION', 0, currentY + 7, { align: 'center', width: pageWidth });
 
-  return currentY;
+  currentY += titleBarHeight;
+
+  // Add spacing before the next section
+  return currentY + 20;
 }
 
 module.exports = { generateHeader };

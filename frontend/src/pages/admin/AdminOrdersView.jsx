@@ -5,7 +5,7 @@ import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import { format } from 'date-fns';
-import { Eye, Download, Trash2 } from 'lucide-react';
+import { Download, Edit, RefreshCw, Copy, Eye, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminOrdersView() {
@@ -13,6 +13,16 @@ export default function AdminOrdersView() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editStatusOpen, setEditStatusOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+
+  const handleRepeatOrder = () => {
+    if (selectedOrder.quotations?.order_type === 'product') {
+      window.location.href = `/admin/create-quotation?repeatId=${selectedOrder.quotations.id}`;
+    } else {
+      window.location.href = `/admin/create-bulk?repeatId=${selectedOrder.quotations.id}`;
+    }
+  };
 
   const fetchOrders = () => {
     setLoading(true);
@@ -47,6 +57,19 @@ export default function AdminOrdersView() {
   const columns = [
     { key: 'order_number', header: 'Order ID', render: (r) => <span className="font-bold">{r.id.substring(r.id.length - 8).toUpperCase()}</span> },
     { key: 'quotation_number', header: 'Quotation ID', render: (r) => r.quotations?.quotation_number || '-' },
+    { key: 'product', header: 'Product', render: (r) => {
+      const q = r.quotations;
+      if (!q || !q.quotation_rows || q.quotation_rows.length === 0) return '-';
+      return (
+        <div className="flex flex-col gap-0.5">
+          {q.quotation_rows.map((row, idx) => {
+            const prodName = row.products?.product_name || row.packing_type || 'N/A';
+            const prodCode = row.products?.product_code ? ` (${row.products.product_code})` : '';
+            return <span key={idx} className="whitespace-nowrap" title={`${prodName}${prodCode}`}>{prodName}{prodCode}</span>;
+          })}
+        </div>
+      );
+    } },
     { key: 'customer_name', header: 'Customer', render: (r) => r.quotations?.customer_name || '-' },
     { key: 'salesman', header: 'Salesman', render: (r) => r.quotations?.employee_name || '-' },
     { key: 'status', header: 'Status', render: (r) => <Badge status={r.current_status} /> },
@@ -88,8 +111,13 @@ export default function AdminOrdersView() {
         searchPlaceholder="Search orders..."
       />
 
-      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title={`Order #${selectedOrder?.id?.substring(selectedOrder.id.length - 8).toUpperCase() || ''}`} size="lg"
-        footer={<Button variant="secondary" onClick={() => setDetailOpen(false)}>Close</Button>}
+      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title={`Order #${selectedOrder?.order_number || ''}`} size="lg"
+        footer={
+          <>
+            <Button variant="secondary" icon={Copy} onClick={handleRepeatOrder}>Repeat Order</Button>
+            <Button variant="secondary" onClick={() => setDetailOpen(false)}>Close</Button>
+          </>
+        }
       >
         {selectedOrder && (
           <div className="space-y-6">

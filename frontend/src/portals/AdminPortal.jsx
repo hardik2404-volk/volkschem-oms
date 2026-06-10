@@ -11,10 +11,11 @@ const adminMenu = [
   { icon: LayoutDashboard, label: 'Dashboard',    path: '/admin/dashboard', exact: true },
   { icon: FileText,        label: 'Quotations',   path: '/admin/quotations' },
   { icon: Truck,           label: 'Orders',        path: '/admin/orders' },
+  { icon: Users,           label: 'Customers',     path: '/admin/customers' },
   { icon: Package,         label: 'Product Master', path: '/admin/products' },
   { icon: DollarSign,      label: 'Bulk Price',    path: '/admin/bulk-prices' },
   { icon: Tag,             label: 'Cost Sheet',    path: '/admin/cost-sheet' },
-  { icon: Users,           label: 'Staff',         path: '/admin/staff' },
+  { icon: ClipboardList,   label: 'Staff',         path: '/admin/staff' },
   { icon: ClipboardList,   label: 'Logs',          path: '/admin/logs' },
 ];
 

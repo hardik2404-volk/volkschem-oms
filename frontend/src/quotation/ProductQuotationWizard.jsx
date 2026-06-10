@@ -24,21 +24,41 @@ function WizardContent() {
   const [isLoading, setIsLoading] = useState(false);
 
   const id = searchParams.get('id');
+  const repeatId = searchParams.get('repeatId');
 
   useEffect(() => {
-    if (id) {
+    const targetId = id || repeatId;
+    if (targetId) {
       setIsLoading(true);
-      loadQuotation(id).then((success) => {
+      loadQuotation(targetId).then((success) => {
         if (success) goToStep(5);
       }).finally(() => setIsLoading(false));
     }
-  }, [id, loadQuotation, goToStep]);
+  }, [id, repeatId, loadQuotation, goToStep]);
 
   const canNext = () => {
     switch (currentStep) {
       case 1: return !!state.orderType && !!state.product;
       case 2: return !!state.header.customer_name && !!state.header.employee_name;
-      case 3: return !!state.packingType && !!state.packSize && state.rows?.length > 0 && state.rows.every((r) => r.totalPcs > 0);
+      case 3: {
+        const hasBase = !!state.packingType && !!state.packSize && state.rows?.length > 0 && state.rows.every((r) => r.totalPcs > 0);
+        if (!hasBase) return false;
+        
+        const NO_LABEL_TYPES = ['Bucket', 'Drum', 'Pouch'];
+        const customerId = state.customer_id || state.header?.customer_id;
+        if (!NO_LABEL_TYPES.includes(state.packingType) && customerId) {
+          return state.rows.every((_, i) => {
+            const globalRowIndex = state.lineItems.length + i;
+            const ld = state.labelDataArray?.[globalRowIndex];
+            if (!ld) return false;
+            if (ld.isNewBatch) {
+              return ld.batchQuantity >= 1000 && parseFloat(ld.ratePerLabel) > 0;
+            }
+            return true;
+          });
+        }
+        return true;
+      }
       case 4: return state.components?.length > 0;
       default: return true;
     }

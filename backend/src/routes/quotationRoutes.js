@@ -4,7 +4,7 @@
 
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
-const { allowAdmin, allowAdminAndEmployee } = require('../middleware/roleGuard');
+const { allowAdmin, allowAdminAndEmployee, allowAll } = require('../middleware/roleGuard');
 const quotationController = require('../controllers/quotationController');
 
 const router = express.Router();
@@ -49,7 +49,10 @@ router.get('/:id/download/draft-pdf', allowAdminAndEmployee, quotationController
 router.get('/:id/download/customer-pdf', allowAdminAndEmployee, quotationController.downloadCustomerPDF);
 
 // GET    /api/v1/quotations/:id/download/factory-pdf
-router.get('/:id/download/factory-pdf', allowAdminAndEmployee, quotationController.downloadFactoryPDF);
+router.get('/:id/download/factory-pdf', allowAll, quotationController.downloadSupervisorPDF);
+
+// GET    /api/v1/quotations/:id/download/production-pdf
+router.get('/:id/download/production-pdf', allowAll, quotationController.downloadProductionPDF);
 
 // GET    /api/v1/quotations/:id/download/excel
 router.get('/:id/download/excel', allowAdminAndEmployee, quotationController.downloadExcel);

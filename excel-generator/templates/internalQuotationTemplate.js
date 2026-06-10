@@ -40,7 +40,7 @@ async function generateInternalExcel(quotationData) {
 
   // ── TOP CUSTOMER INFO SECTION ──
   const customerRows = [
-    ['QUOTATION BY:', 'ADMIN', '', '', '', '', '', '', '', '', '', ''],
+    ['QUOTATION BY:', quotationData.employee_name || 'ADMIN', '', '', '', '', '', '', '', '', '', ''],
     ['GST NO. / PAN NO. :', quotationData.gst_pan || '', '', '', '', '', '', '', '', '', '', ''],
     ['CUSTOMER NAME:', quotationData.customer_name || '', '', '', '', '', '', '', '', '', '', ''],
     ['COMPANY NAME:', quotationData.billing_name || quotationData.customer_name || '', '', '', '', '', '', '', '', '', '', ''],
@@ -145,6 +145,7 @@ async function generateInternalExcel(quotationData) {
   const cLightGreen = 'FFC5E1A5';
 
   addHeader('PRODUCT NAME OR (CODE NO.)', cGreen, 20);
+  addHeader('PRODUCT ID', cGreen, 15);
   addHeader('BRAND NAME', cGreen, 15);
   addHeader('DOSE', cGreen, 12);
   addHeader('MRP', cGreen, 12);
@@ -194,6 +195,7 @@ async function generateInternalExcel(quotationData) {
     const totalLtrKg = row.total_pcs * packLtrKg;
 
     addCell(row.products?.product_name || quotationData.product_name || '');
+    addCell(row.products?.product_code || row.product?.product_code || quotationData.products?.product_code || '-');
     addCell(quotationData.name_on_label || quotationData.brand_name || '');
     addCell(`${row.pack_size_value || ''}${row.pack_size_unit || ''}`.trim());
     addCell(row.mrp || 0, true);
@@ -236,7 +238,7 @@ async function generateInternalExcel(quotationData) {
   // ── SUBTOTAL ROW ──
   const subTotalRow = sheet.addRow([]);
   // Let's place "TOTAL" next to Total Amount
-  const totalAmountColIdx = 9 + compArray.length + 5;
+  const totalAmountColIdx = 10 + compArray.length + 5;
   const tCellLabel = subTotalRow.getCell(totalAmountColIdx - 1);
   tCellLabel.value = 'TOTAL';
   setBg(tCellLabel, 'FFFFFF00'); // Yellow
@@ -245,11 +247,126 @@ async function generateInternalExcel(quotationData) {
   tCellLabel.alignment = { horizontal: 'right' };
 
   const tCellVal = subTotalRow.getCell(totalAmountColIdx);
-  tCellVal.value = quotationData.grand_total;
+  // This is the subtotal (without labels)
+  tCellVal.value = quotationData.subtotal + (quotationData.total_gst || 0);
   setBg(tCellVal, 'FFFFFF00');
   setBold(tCellVal);
   setBorder(tCellVal);
   tCellVal.numFmt = INR_FORMAT;
+
+  // ── LABEL INVENTORY STRUCTURE ──
+  let totalLabelPayable = 0;
+  
+  if (quotationData.rows && quotationData.rows.length > 0) {
+    const labelRows = quotationData.rows.filter(r => r.label_snapshot);
+    if (labelRows.length > 0) {
+      // Shift so that Label 'AMOUNT' aligns with Product 'AMOUNT' (which is 10 + length + 3)
+      // Label 'AMOUNT' is offset + 10. So offset + 10 = 13 + compArray.length.
+      const offset = 3 + compArray.length;
+
+      // Title
+      const invTitleRowData = new Array(offset).fill('');
+      invTitleRowData.push('Packing Materials Stock Inventory Payment');
+      const invTitle = sheet.addRow(invTitleRowData);
+      const titleCell = invTitle.getCell(offset + 1);
+      setBg(titleCell, 'FFE0A890'); // Peach background like the image
+      setBold(titleCell);
+      setBorder(titleCell);
+      titleCell.alignment = { horizontal: 'center' };
+      sheet.mergeCells(invTitle.number, offset + 1, invTitle.number, offset + 11);
+      
+      // Header
+      const lHeaderData = new Array(offset).fill('');
+      const labelHeaders = [
+        'BRAND NAME', 'PACK TYPE', 'PACK SIZE', 'Available Stock', 
+        'LABEL MADE', 'TOTAL STOCK', 'LABEL USED', 'CLO. STOCK', 
+        'RATE', 'AMOUNT', 'GST'
+      ];
+      lHeaderData.push(...labelHeaders);
+      const lHeader = sheet.addRow(lHeaderData);
+      
+      for (let i = 1; i <= 11; i++) {
+        const cell = lHeader.getCell(offset + i);
+        setBg(cell, 'FFE0A890'); // Peach
+        setBold(cell);
+        setBorder(cell);
+        cell.alignment = { horizontal: 'center' };
+      }
+
+      labelRows.forEach(row => {
+        const snap = row.label_snapshot;
+        const brandName = quotationData.name_on_label || quotationData.brand_name || row.products?.product_name || '';
+        
+        let rate = 0, amount = 0, gst = 0;
+        if (snap.is_new_batch) {
+          rate = snap.rate_per_label || 0;
+          amount = snap.amount || 0;
+          gst = snap.gst_amount || 0;
+          totalLabelPayable += parseFloat(snap.total_amount || snap.current_batch_total || 0);
+        }
+
+        const rowData = new Array(offset).fill('');
+        rowData.push(
+          brandName,
+          snap.pack_type || row.packing_type || '',
+          snap.pack_size || row.pack_size || '',
+          snap.open_stock || 0,
+          snap.is_new_batch ? (snap.make_quantity || 0) : 0,
+          snap.total_stock || 0,
+          snap.used_pcs || 0,
+          snap.closing_stock_after || 0,
+          rate,
+          amount,
+          gst
+        );
+        const lRow = sheet.addRow(rowData);
+
+        for (let i = 1; i <= 11; i++) {
+          const cell = lRow.getCell(offset + i);
+          setBorder(cell);
+          cell.alignment = { horizontal: 'center' };
+          setBg(cell, 'FFE0A890'); // Peach background for the rows too!
+        }
+      });
+      
+      if (totalLabelPayable > 0) {
+        const lTotalData = new Array(offset).fill('');
+        lTotalData.push('TOTAL PAYABLE AMOUNT Rs.');
+        const lTotal = sheet.addRow(lTotalData);
+        
+        const totalTextCell = lTotal.getCell(offset + 1);
+        setBg(totalTextCell, 'FFE0A890'); // Peach
+        setBold(totalTextCell);
+        setBorder(totalTextCell);
+        totalTextCell.alignment = { horizontal: 'right' };
+        sheet.mergeCells(lTotal.number, offset + 1, lTotal.number, offset + 11);
+
+        // Put the value in the next column (which is TOTAL AMOUNT WITH GST)
+        const totalValCell = lTotal.getCell(totalAmountColIdx);
+        totalValCell.value = totalLabelPayable;
+        setBg(totalValCell, 'FFE0A890'); // Peach
+        setBold(totalValCell);
+        setBorder(totalValCell);
+        totalValCell.numFmt = INR_FORMAT;
+      }
+    }
+  }
+
+  // ── GRAND TOTAL ROW ──
+  const grandTotalRow = sheet.addRow([]);
+  const gtCellLabel = grandTotalRow.getCell(totalAmountColIdx - 1);
+  gtCellLabel.value = 'GRAND TOTAL';
+  setBg(gtCellLabel, 'FFFFFF00'); // Yellow
+  setBold(gtCellLabel);
+  setBorder(gtCellLabel);
+  gtCellLabel.alignment = { horizontal: 'right' };
+
+  const gtCellVal = grandTotalRow.getCell(totalAmountColIdx);
+  gtCellVal.value = quotationData.grand_total;
+  setBg(gtCellVal, 'FFFFFF00'); // Yellow
+  setBold(gtCellVal);
+  setBorder(gtCellVal);
+  gtCellVal.numFmt = INR_FORMAT;
 
   // ── AMPOULE PACKAGING STRUCTURE (If Applicable) ──
   if (hasAmpoule) {

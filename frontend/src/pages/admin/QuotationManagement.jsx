@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { quotationService } from '../../services/dataService';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
@@ -6,7 +6,7 @@ import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import { format } from 'date-fns';
-import { Eye, CheckCircle, XCircle, Edit, Download, FileText, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Edit, Download, FileText, FileSpreadsheet, Trash2, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function formatINR(amount) {
@@ -28,6 +28,14 @@ export default function QuotationManagement() {
   // Edit Modal State
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ customer_name: '', destination: '', transport_name: '', grand_total: 0 });
+
+  const handleRepeatOrder = () => {
+    if (selectedQuotation.order_type === 'product') {
+      window.location.href = `/admin/create-quotation?repeatId=${selectedQuotation.id}`;
+    } else {
+      window.location.href = `/admin/create-bulk?repeatId=${selectedQuotation.id}`;
+    }
+  };
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -137,6 +145,18 @@ export default function QuotationManagement() {
 
   const columns = [
     { key: 'quotation_number', header: 'Quote ID', accessor: 'quotation_number' },
+    { key: 'product', header: 'Product', render: (r) => {
+      if (!r.quotation_rows || r.quotation_rows.length === 0) return '-';
+      return (
+        <div className="flex flex-col gap-0.5">
+          {r.quotation_rows.map((row, idx) => {
+            const prodName = row.products?.product_name || row.packing_type || 'N/A';
+            const prodCode = row.products?.product_code ? ` (${row.products.product_code})` : '';
+            return <span key={idx} className="whitespace-nowrap" title={`${prodName}${prodCode}`}>{prodName}{prodCode}</span>;
+          })}
+        </div>
+      );
+    } },
     { key: 'customer_name', header: 'Customer', accessor: 'customer_name' },
     { key: 'employee_name', header: 'Salesman', accessor: 'employee_name' },
     { key: 'order_type', header: 'Type', render: (row) => <Badge status={row.order_type} /> },
@@ -194,6 +214,7 @@ export default function QuotationManagement() {
       <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} title={`Quotation #${selectedQuotation?.quotation_number || ''}`} size="full"
         footer={selectedQuotation && (
           <>
+            <Button variant="secondary" icon={Copy} onClick={handleRepeatOrder}>Repeat Order</Button>
             {selectedQuotation.status === 'draft' && (
               <>
                 <Button variant="secondary" icon={Edit} onClick={openEditModal}>Edit Header</Button>
@@ -210,7 +231,8 @@ export default function QuotationManagement() {
             {selectedQuotation.status === 'approved' && (
               <>
                 <Button variant="secondary" icon={Download} onClick={() => handleDownload('customer')}>Customer PDF</Button>
-                <Button variant="secondary" icon={Download} onClick={() => handleDownload('factory')}>Factory PDF</Button>
+                <Button variant="secondary" icon={Download} onClick={() => handleDownload('factory')}>Supervisor PDF</Button>
+                <Button variant="secondary" icon={Download} onClick={() => handleDownload('production')}>Production PDF</Button>
                 <Button variant="secondary" icon={FileSpreadsheet} onClick={async () => {
                   try {
                     const { data } = await quotationService.downloadExcel(selectedQuotation.id);
@@ -255,7 +277,7 @@ export default function QuotationManagement() {
               <table className="w-full border border-border rounded-lg overflow-hidden">
                 <thead>
                   <tr className="bg-primary text-white">
-                    {['Product', 'Pack Size', 'Qty', 'Bulk Rate', 'Cost/Pcs', 'Amount', 'GST', 'Total'].map((h) => (
+                    {['Product', 'Pack Size', 'Qty', 'Bulk Rate', 'Cost/Pcs', 'Label/Pcs', 'Amount', 'GST', 'Total'].map((h) => (
                       <th key={h} className="px-3 py-2 text-xs font-semibold text-left">{h}</th>
                     ))}
                   </tr>
@@ -270,24 +292,66 @@ export default function QuotationManagement() {
                           total_pcs: selectedQuotation.quantity,
                           bulk_rate_per_ltr_kg: selectedQuotation.material_rate,
                           cost_per_pcs: selectedQuotation.material_rate,
+                          components: [],
                           row_amount: selectedQuotation.subtotal,
                           gst_rate: selectedQuotation.gst_rate || 18,
                           row_total_with_gst: selectedQuotation.grand_total,
                         }] 
                       : (selectedQuotation.rows || []);
 
-                    return displayRows.map((row, i) => (
-                      <tr key={i} className={`border-b border-border ${i % 2 ? 'bg-surface-alt' : ''}`}>
-                      <td className="px-3 py-2 text-sm">{selectedQuotation.product_name || row.product_name || '-'}</td>
-                      <td className="px-3 py-2 text-sm">{row.pack_size_value}{row.pack_size_unit}</td>
-                      <td className="px-3 py-2 text-sm">{row.total_pcs}</td>
-                      <td className="px-3 py-2 text-sm">{formatINR(row.bulk_rate_per_ltr_kg)}</td>
-                      <td className="px-3 py-2 text-sm">{formatINR(row.cost_per_pcs)}</td>
-                      <td className="px-3 py-2 text-sm font-medium">{formatINR(row.row_amount)}</td>
-                      <td className="px-3 py-2 text-sm">{row.gst_rate}%</td>
-                      <td className="px-3 py-2 text-sm font-bold">{formatINR(row.row_total_with_gst)}</td>
-                    </tr>
-                  ));
+                    return displayRows.map((row, i) => {
+                      const ld = row.label_snapshot;
+                      const labelRate = (ld && ld.is_new_batch) ? ld.rate_per_label : 0;
+                      
+                      return (
+                      <React.Fragment key={i}>
+                        <tr className={`border-b border-border ${i % 2 ? 'bg-surface-alt' : ''}`}>
+                          <td className="px-3 py-2 text-sm">
+                            {row.products ? `${row.products.product_name} (${row.products.product_code})` : (selectedQuotation.material_name || '-')}
+                          </td>
+                          <td className="px-3 py-2 text-sm">{row.pack_size_value}{row.pack_size_unit}</td>
+                          <td className="px-3 py-2 text-sm">{row.total_pcs}</td>
+                          <td className="px-3 py-2 text-sm">{formatINR(row.bulk_rate_per_ltr_kg)}</td>
+                          <td className="px-3 py-2 text-sm">{formatINR(row.cost_per_pcs)}</td>
+                          <td className="px-3 py-2 text-sm">{formatINR(labelRate)}</td>
+                          <td className="px-3 py-2 text-sm font-medium">{formatINR(row.row_amount)}</td>
+                          <td className="px-3 py-2 text-sm">{row.gst_rate}%</td>
+                          <td className="px-3 py-2 text-sm font-bold">{formatINR(row.row_total_with_gst)}</td>
+                        </tr>
+                        {ld && (ld.is_new_batch || ld.include_in_quotation) && (
+                          <tr className={i % 2 ? 'bg-surface-alt' : ''}>
+                            <td colSpan="9" className="px-3 py-2 border-b border-border">
+                              <div className={`p-3 border rounded ${ld.is_new_batch ? 'border-warning bg-warning-light/10' : 'border-success bg-success-light/10'}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                  <h4 className="font-semibold text-xs">{ld.is_new_batch ? 'New Label Batch Required' : 'Label Inventory Status'}</h4>
+                                  {ld.is_new_batch && <span className="font-bold text-primary text-xs">+ {formatINR(ld.current_batch_total)}</span>}
+                                </div>
+                                <table className="w-full text-xs text-left">
+                                  <thead>
+                                    <tr className="text-text-muted border-b">
+                                      <th className="pb-1 font-medium">Pack Size</th>
+                                      <th className="pb-1 font-medium text-right">Printed (Make)</th>
+                                      <th className="pb-1 font-medium text-right">Used</th>
+                                      <th className="pb-1 font-medium text-right">Closing Stock</th>
+                                      {ld.is_new_batch && <th className="pb-1 font-medium text-right">Rate</th>}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td className="py-1">{ld.pack_size}</td>
+                                      <td className="py-1 text-right">{ld.is_new_batch ? (ld.make_quantity || 0).toLocaleString() : '0'}</td>
+                                      <td className="py-1 text-right text-error">{(ld.used_to_date || 0).toLocaleString()}</td>
+                                      <td className="py-1 text-right font-medium">{(ld.closing_stock || 0).toLocaleString()}</td>
+                                      {ld.is_new_batch && <td className="py-1 text-right">₹{ld.rate_per_label}</td>}
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )});
                 })()}
                 </tbody>
               </table>
@@ -298,6 +362,18 @@ export default function QuotationManagement() {
               <div className="w-72 space-y-2">
                 <div className="flex justify-between text-sm"><span className="text-text-secondary">Subtotal:</span><span className="font-medium">{formatINR(selectedQuotation.subtotal)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-text-secondary">GST:</span><span className="font-medium">{formatINR(selectedQuotation.total_gst)}</span></div>
+                {(() => {
+                  const labelTotal = (selectedQuotation.rows || []).reduce((acc, row) => {
+                    const snap = row.label_snapshot;
+                    return acc + (snap && snap.is_new_batch ? (snap.current_batch_total || snap.total_amount || 0) : 0);
+                  }, 0);
+                  if (labelTotal > 0) {
+                    return (
+                      <div className="flex justify-between text-sm"><span className="text-text-secondary">Labels Total:</span><span className="font-medium">{formatINR(labelTotal)}</span></div>
+                    );
+                  }
+                  return null;
+                })()}
                 <div className="flex justify-between text-base font-bold border-t border-border pt-2 mt-2">
                   <span className="text-primary">Grand Total:</span>
                   <span className="text-primary">{formatINR(selectedQuotation.grand_total)}</span>

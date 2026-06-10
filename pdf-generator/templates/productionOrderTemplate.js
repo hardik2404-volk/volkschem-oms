@@ -1,21 +1,20 @@
 // ============================================================================
-// VOLKSCHEM OMS — Factory Order Template
+// VOLKSCHEM OMS — Production Order Template
 // ============================================================================
 
 const PDFDocument = require('pdfkit');
 const { generateHeader } = require('../sections/headerSection');
 const { generateCustomerSection } = require('../sections/customerSection');
-const { generateProductTable } = require('../sections/productTableSection');
-const { generateLabelInventorySection } = require('../sections/labelInventorySection');
+const { generateProductionTable } = require('../sections/productionTableSection');
 
 /**
  * Generate a Factory Production Order PDF.
- * Strips all financial information and adds Admin Notes.
+ * Uses 3 distinct dynamic table layouts based on the order type and packing size.
  *
  * @param {Object} quotationData
  * @returns {Promise<Buffer>}
  */
-function generateFactoryOrderPDF(quotationData) {
+function generateProductionOrderPDF(quotationData) {
   return new Promise((resolve, reject) => {
     try {
       // Create landscape A4 document
@@ -43,36 +42,32 @@ function generateFactoryOrderPDF(quotationData) {
       // 2. Customer Section (Title 'PRODUCTION ORDER')
       currentY = generateCustomerSection(doc, quotationData, currentY, 'PRODUCTION ORDER');
 
-      // 3. Product Table (isFactoryView = true)
-      currentY = generateProductTable(doc, quotationData, currentY, true);
+      // 3. Dynamic Production Table
+      currentY = generateProductionTable(doc, quotationData, currentY);
 
-      const { generateAmpouleStructureSection } = require('../sections/ampouleStructureSection');
-
-      // 4. Admin Note (if exists)
-      if (quotationData.admin_note) {
-        if (currentY > doc.page.height - 100) {
-          doc.addPage();
-          currentY = 40;
+      // 4. Operator Sign-offs
+      if (currentY > doc.page.height - 120) {
+        doc.addPage();
+        currentY = 40;
+      }
+      
+      currentY += 30;
+      const margin = 30;
+      doc.rect(margin, currentY, (doc.page.width - margin * 2), 60).strokeColor('#E0E0E0').lineWidth(1).stroke();
+      
+      const boxWidth = (doc.page.width - margin * 2) / 4;
+      doc.fillColor('#000').font('NotoSans-Bold').fontSize(9);
+      
+      // Draw vertical separators and text
+      ['PREPARED BY (STORE)', 'CHECKED BY (SUPERVISOR)', 'PACKED BY (OPERATOR)', 'DISPATCHED BY'].forEach((label, i) => {
+        const x = margin + (boxWidth * i);
+        if (i > 0) {
+          doc.moveTo(x, currentY).lineTo(x, currentY + 60).strokeColor('#E0E0E0').lineWidth(1).stroke();
         }
-
-        const margin = 40;
-        const boxWidth = doc.page.width - margin * 2;
-        
-        doc.rect(margin, currentY, boxWidth, 50).fillAndStroke('#FFF3E0', '#FF9800'); // Orange highlight
-        doc.fillColor('#E65100').font('NotoSans-Bold').fontSize(10);
-        doc.text('Admin Note:', margin + 10, currentY + 10);
-        doc.font('NotoSans').fontSize(9).text(quotationData.admin_note, margin + 10, currentY + 25);
-        
-        currentY += 70;
-      }
-
-      // Append Ampoule Structure
-      currentY = generateAmpouleStructureSection(doc, quotationData, currentY);
-
-      // 5. Label Inventory (Optional - factory needs to see label counts)
-      if (quotationData.label_inventory) {
-        currentY = generateLabelInventorySection(doc, quotationData.label_inventory, currentY, true); // true = isFactoryView
-      }
+        doc.text(label, x + 10, currentY + 10, { width: boxWidth - 20, align: 'center' });
+        doc.font('NotoSans').fontSize(8).fillColor('#666').text('Sign & Date:', x + 10, currentY + 45);
+        doc.font('NotoSans-Bold').fontSize(9).fillColor('#000');
+      });
 
       // Add Page Numbers and Custom Footer
       const { formatIndianDate } = require('../utils/dateFormatter');
@@ -98,4 +93,4 @@ function generateFactoryOrderPDF(quotationData) {
   });
 }
 
-module.exports = { generateFactoryOrderPDF };
+module.exports = { generateProductionOrderPDF };

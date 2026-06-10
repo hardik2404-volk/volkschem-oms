@@ -5,6 +5,7 @@ import PackingTypeSelector from '../components/PackingTypeSelector';
 import Input from '../../components/common/Input';
 import { CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { AMPOULE_PACKAGING } from '../../utils/constants';
+import LabelManagementBlock from '../components/LabelManagementBlock';
 
 // ── Variants & Sizes ─────────────────────────────────────────────────────────
 const BOTTLE_VARIANTS = [
@@ -14,7 +15,7 @@ const BOTTLE_VARIANTS = [
   'PET Regular Shape', 'PET V Shape', 'Aluminium SD-SS Shape', 'Aluminium Indoxa Shape',
 ];
 const BOTTLE_SIZES = ['1ltr', '500ml', '250ml', '100ml', '50ml', '25ml', '10ml'];
-const AMPOULE_SIZES = ['20ml', '15ml', '10ml', '5ml', '2ml', '1ml'];
+const AMPOULE_SIZES = ['20ml', '15ml', '10ml', '5ml', '2ml'];
 const POUCH_TYPES = ['Common Pouch', 'Printing Pouch for Powder', 'Printing Pouch for Granules'];
 const POUCH_SIZES = ['1kg', '500gm', '250gm', '100gm'];
 const JAR_VARIANTS = ['Proclame Dabba Benzowin', 'JAR Denfen Om Shanti', 'Thayo Dabba Harsh', 'HY-MAX Dabba Parth'];
@@ -33,8 +34,28 @@ function getQtyUnit(packingType) {
 
 export default function Step3PackingAndQuantity() {
   const { state, updateField, addRow, updateRow } = useQuotation();
-  const [labelChecking, setLabelChecking] = useState(false);
   const initialized = useRef(false);
+
+  // Local state to prevent cursor jumps and value resets
+  const [localQty, setLocalQty] = useState(state.rows[0]?.totalQuantityLtrKg || '');
+  const [localMrp, setLocalMrp] = useState(state.rows[0]?.mrp || '');
+  const [localCarton, setLocalCarton] = useState(state.rows[0]?.nosPerCarton || '');
+
+  // Reset local state when packing type changes
+  useEffect(() => {
+    setLocalQty('');
+    setLocalMrp('');
+    setLocalCarton('');
+  }, [state.packingType]);
+
+  // Sync back from global if returning to this step and local is empty
+  useEffect(() => {
+    if (state.rows[0]) {
+      if (localQty === '' && state.rows[0].totalQuantityLtrKg) setLocalQty(state.rows[0].totalQuantityLtrKg);
+      if (localMrp === '' && state.rows[0].mrp) setLocalMrp(state.rows[0].mrp);
+      if (localCarton === '' && state.rows[0].nosPerCarton) setLocalCarton(state.rows[0].nosPerCarton);
+    }
+  }, [state.rows]);
 
   const available = state.product?.available_packing_types?.length > 0
     ? state.product.available_packing_types
@@ -134,33 +155,7 @@ export default function Step3PackingAndQuantity() {
     });
   };
 
-  // Run label check on blur of quantity
-  const runLabelCheck = async () => {
-    const row0 = state.rows[0];
-    if (!row0 || !row0.totalPcs || !state.product?.id || NO_LABEL_TYPES.includes(state.packingType)) {
-      updateField('labelCheckResult', null);
-      return;
-    }
-    setLabelChecking(true);
-    try {
-      const res = await labelService.checkAvailability([{
-        product_id: state.product.id,
-        pack_type: state.packingType,
-        pack_size: state.packSize,
-        quantity_needed: row0.totalPcs,
-      }]);
-      const result = res.data?.results?.[0] || null;
-      updateField('labelCheckResult', result);
-    } catch {
-      updateField('labelCheckResult', null);
-    } finally {
-      setLabelChecking(false);
-    }
-  };
-
   const row0 = state.rows[0];
-  const labelResult = state.labelCheckResult;
-  const needsLabelCheck = row0 && !NO_LABEL_TYPES.includes(state.packingType);
 
   // Calculated summary
   const bulkCostPerPcs = useMemo(() => {
@@ -270,31 +265,52 @@ export default function Step3PackingAndQuantity() {
               </label>
               <input
                 type="number"
-                value={row0.totalQuantityLtrKg}
-                onChange={(e) => handleRowChange('totalQuantityLtrKg', e.target.value)}
-                onBlur={runLabelCheck}
+                value={localQty}
+                onChange={(e) => {
+                  setLocalQty(e.target.value);
+                  handleRowChange('totalQuantityLtrKg', e.target.value);
+                }}
+                onWheel={(e) => e.target.blur()}
                 placeholder="e.g. 50"
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-lighter/40 focus:border-primary-lighter"
               />
             </div>
             
             {state.packingType !== 'Ampoule' && (
-              <Input
-                label="Nos Per Carton"
-                type="number"
-                value={row0.nosPerCarton}
-                onChange={(e) => handleRowChange('nosPerCarton', e.target.value)}
-                required
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-text-primary">
+                  Nos Per Carton <span className="text-error">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={localCarton}
+                  onChange={(e) => {
+                    setLocalCarton(e.target.value);
+                    handleRowChange('nosPerCarton', e.target.value);
+                  }}
+                  onWheel={(e) => e.target.blur()}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-lighter/40 focus:border-primary-lighter"
+                  required
+                />
+              </div>
             )}
             
-            <Input
-              label="MRP (₹)"
-              type="number"
-              value={row0.mrp}
-              onChange={(e) => handleRowChange('mrp', e.target.value)}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-text-primary">
+                MRP (₹) <span className="text-error">*</span>
+              </label>
+              <input
+                type="number"
+                value={localMrp}
+                onChange={(e) => {
+                  setLocalMrp(e.target.value);
+                  handleRowChange('mrp', e.target.value);
+                }}
+                onWheel={(e) => e.target.blur()}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-lighter/40 focus:border-primary-lighter"
+                required
+              />
+            </div>
           </div>
 
           {state.packingType === 'Ampoule' && state.packSize && AMPOULE_PACKAGING[state.packSize] && (
@@ -344,37 +360,14 @@ export default function Step3PackingAndQuantity() {
               </div>
             </div>
           )}
-
-          {/* Label Check Status */}
-          {needsLabelCheck && row0.totalPcs > 0 && (
-            <div>
-              {labelChecking ? (
-                <div className="flex items-center gap-2 text-sm text-text-muted py-2">
-                  <Loader2 size={16} className="animate-spin" />
-                  Checking label availability…
-                </div>
-              ) : labelResult ? (
-                labelResult.sufficient ? (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-success-light border border-success/30 rounded-lg text-success text-sm font-medium">
-                    <CheckCircle2 size={16} className="flex-shrink-0" />
-                    Labels OK — {labelResult.available?.toLocaleString()} in stock. This order needs {row0.totalPcs?.toLocaleString()}.
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-warning-light border border-warning/30 rounded-lg text-warning text-sm font-medium">
-                    <AlertTriangle size={16} className="flex-shrink-0" />
-                    Insufficient labels — only {labelResult.available?.toLocaleString()} available, {row0.totalPcs?.toLocaleString()} needed.
-                    You can add a label batch in the next step.
-                  </div>
-                )
-              ) : (
-                <p className="text-xs text-text-muted">
-                  Click outside the Qty field to trigger label availability check.
-                </p>
-              )}
-            </div>
-          )}
         </div>
       )}
+
+      {/* Label Management Section(s) */}
+      {state.rows.map((row, index) => {
+        const globalRowIndex = state.lineItems.length + index;
+        return <LabelManagementBlock key={index} rowIndex={globalRowIndex} row={row} />;
+      })}
     </div>
   );
 }

@@ -33,12 +33,60 @@ async function getQuotation(req, res, next) {
   }
 }
 
+const customerService = require('../services/customerService');
+
 async function createQuotation(req, res, next) {
   try {
     const { validateQuotation } = require('../../../quotation-engine/validators/quotationValidator');
     const validation = validateQuotation(req.body);
     if (!validation.isValid) {
       return sendValidationError(res, validation.errors);
+    }
+
+    // Auto-save new customer
+    if (req.body.customer_name && req.body.customer_name.trim() !== '') {
+      try {
+        const customerNameStr = req.body.customer_name.trim();
+        const customers = await customerService.getAllCustomers(customerNameStr);
+        const exists = customers.find(c => c.customer_name.trim().toLowerCase() === customerNameStr.toLowerCase());
+        if (!exists) {
+          await customerService.createCustomer({
+            customer_name: req.body.customer_name,
+            gst_pan: req.body.gst_pan,
+            billing_address: req.body.billing_address,
+            contact_number: req.body.customer_contact,
+            transport_name: req.body.transport_name,
+            destination: req.body.destination
+          });
+        }
+      } catch (err) {
+        console.error('Failed to auto-save customer:', err);
+      }
+    }
+
+    // Label Inventory Pre-Validation
+    if (req.body.customer_id && req.body.rows) {
+      const labelService = require('../services/labelService');
+      for (const row of req.body.rows) {
+        if (row.components) {
+          const labelComp = row.components.find(c => c.component_name.toLowerCase() === 'label' && c.is_checked);
+          if (labelComp && labelComp.label_quantity > 0) {
+            const stockCheck = await labelService.checkLabelStock(
+              req.body.customer_id,
+              row.product_id || req.body.product_id,
+              row.pack_size_value + row.pack_size_unit,
+              row.total_pcs
+            );
+
+            if (stockCheck.isFirstOrder && labelComp.label_quantity < 1000) {
+              return sendError(res, 'First order requires minimum 1000 labels (MOQ).', 400);
+            }
+            if (!stockCheck.sufficient && labelComp.label_quantity < 1000) {
+              return sendError(res, 'Insufficient labels and new batch must be minimum 1000.', 400);
+            }
+          }
+        }
+      }
     }
 
     const data = await quotationService.createQuotation(req.body, req.user.id);
@@ -58,6 +106,27 @@ async function updateQuotation(req, res, next) {
       const validation = validateQuotation(req.body);
       if (!validation.isValid) {
         return sendValidationError(res, validation.errors);
+      }
+    }
+
+    // Auto-save new customer
+    if (req.body.customer_name && req.body.customer_name.trim() !== '') {
+      try {
+        const customerNameStr = req.body.customer_name.trim();
+        const customers = await customerService.getAllCustomers(customerNameStr);
+        const exists = customers.find(c => c.customer_name.trim().toLowerCase() === customerNameStr.toLowerCase());
+        if (!exists) {
+          await customerService.createCustomer({
+            customer_name: req.body.customer_name,
+            gst_pan: req.body.gst_pan,
+            billing_address: req.body.billing_address,
+            contact_number: req.body.customer_contact,
+            transport_name: req.body.transport_name,
+            destination: req.body.destination
+          });
+        }
+      } catch (err) {
+        console.error('Failed to auto-save customer:', err);
       }
     }
 
@@ -147,12 +216,25 @@ async function downloadCustomerPDF(req, res, next) {
   }
 }
 
-async function downloadFactoryPDF(req, res, next) {
+async function downloadSupervisorPDF(req, res, next) {
   try {
     const data = await quotationService.getQuotationById(req.params.id, req.user.id, req.user.role);
-    const pdfBuffer = await pdfService.generateFactoryPDF(data.id, data);
+    const pdfBuffer = await pdfService.generateSupervisorPDF(data.id, data);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Factory_Order_${data.quotation_number}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=Supervisor_Order_${data.quotation_number}.pdf`);
+    return res.send(pdfBuffer);
+  } catch (err) {
+    if (err.statusCode) return sendError(res, err.message, err.statusCode);
+    next(err);
+  }
+}
+
+async function downloadProductionPDF(req, res, next) {
+  try {
+    const data = await quotationService.getQuotationById(req.params.id, req.user.id, req.user.role);
+    const pdfBuffer = await pdfService.generateProductionPDF(data.id, data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Production_Order_${data.quotation_number}.pdf`);
     return res.send(pdfBuffer);
   } catch (err) {
     if (err.statusCode) return sendError(res, err.message, err.statusCode);
@@ -194,7 +276,8 @@ module.exports = {
   previewQuotation,
   downloadDraftPDF,
   downloadCustomerPDF,
-  downloadFactoryPDF,
+  downloadSupervisorPDF,
+  downloadProductionPDF,
   downloadExcel,
   deleteQuotation,
 };

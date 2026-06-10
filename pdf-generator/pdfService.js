@@ -3,7 +3,8 @@
 // ============================================================================
 
 const { generateCustomerQuotationPDF } = require('./templates/customerQuotationTemplate');
-const { generateFactoryOrderPDF } = require('./templates/factoryOrderTemplate');
+const { generateSupervisorOrderPDF } = require('./templates/supervisorOrderTemplate');
+const { generateProductionOrderPDF } = require('./templates/productionOrderTemplate');
 const { applyDraftWatermark } = require('./templates/draftWatermarkTemplate');
 const PDFDocument = require('pdfkit');
 const { generateHeader } = require('./sections/headerSection');
@@ -21,10 +22,17 @@ async function generateCustomerPDF(quotationId, quotationData) {
 }
 
 /**
- * Orchestrator: Generate Factory PDF
+ * Orchestrator: Generate Supervisor PDF
  */
-async function generateFactoryPDF(quotationId, quotationData) {
-  return await generateFactoryOrderPDF(quotationData);
+async function generateSupervisorPDF(quotationId, quotationData) {
+  return await generateSupervisorOrderPDF(quotationData);
+}
+
+/**
+ * Orchestrator: Generate Production PDF
+ */
+async function generateProductionPDF(quotationId, quotationData) {
+  return await generateProductionOrderPDF(quotationData);
 }
 
 /**
@@ -82,6 +90,7 @@ async function generateDraftPDF(quotationId, quotationData) {
 
 module.exports = {
   generateCustomerPDF,
-  generateFactoryPDF,
+  generateSupervisorPDF,
+  generateProductionPDF,
   generateDraftPDF,
 };

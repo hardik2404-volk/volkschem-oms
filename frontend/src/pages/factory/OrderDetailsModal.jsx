@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Package, Clock, CheckCircle2, User } from 'lucide-react';
-import { orderService } from '../../services/dataService';
+import { Package, Clock, CheckCircle2, User, Download } from 'lucide-react';
+import { orderService, quotationService } from '../../services/dataService';
 import dayjs from 'dayjs';
 import { AMPOULE_PACKAGING } from '../../utils/constants';
+import Button from '../../components/common/Button';
+import toast from 'react-hot-toast';
 
 export default function OrderDetailsModal({ order }) {
   const [timeline, setTimeline] = useState([]);
@@ -131,6 +133,31 @@ export default function OrderDetailsModal({ order }) {
             ))}
           </div>
         )}
+      </div>
+      {/* Download Actions */}
+      <div className="flex gap-2 pt-4 border-t border-border mt-6">
+        <Button variant="secondary" icon={Download} onClick={async () => {
+          try {
+            const { data } = await quotationService.downloadPDF(order.quotations?.id, 'factory');
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${order.quotations?.quotation_number}_supervisor.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch { toast.error('Download failed.'); }
+        }}>Supervisor PDF</Button>
+        <Button variant="secondary" icon={Download} onClick={async () => {
+          try {
+            const { data } = await quotationService.downloadPDF(order.quotations?.id, 'production');
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${order.quotations?.quotation_number}_production.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch { toast.error('Download failed.'); }
+        }}>Production PDF</Button>
       </div>
     </div>
   );

@@ -24,15 +24,18 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
   // Has ampoule check
   const hasAmpoule = quotationData.rows.some(r => r.packing_type && r.packing_type.toLowerCase().includes('ampoule'));
 
-  // 1. Base Columns
   let columns = [
     { label: 'Sr', key: 'sr', width: 20 },
-    { label: 'Product', key: 'product_name', width: 115 },
-    { label: 'Packing Size', key: 'pack_size', width: 50 },
-    { label: 'Qty', key: 'total_pcs', width: 35 },
+    { label: 'Product', key: 'product_name', width: 100 },
+    { label: 'Packing Size', key: 'pack_size', width: 50 }
   ];
 
+  if (isFactoryView) {
+    columns.splice(1, 0, { label: 'Product ID', key: 'product_code', width: 60 });
+  }
+
   if (!isFactoryView) {
+    columns.push({ label: 'Qty', key: 'total_pcs', width: 35 });
     columns.push({ label: 'Rate (₹)', key: 'bulk_material_cost_per_pcs', width: 40 });
 
     // Dynamic Components
@@ -45,9 +48,9 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
       });
     });
 
-    // We'll prioritize common terms based on the screenshot (Label, Bottle, Cap, Carton, Labour, Freight)
-    const orderedComps = ['LABEL', 'BOTTLE', 'CAP', 'CARTON', 'LABOUR', 'FREIGHT', 'AMPOULE', 'TRAY', 'FBB BOX', 'INNER BOX', 'OUTER BOX'];
-    const compArray = Array.from(dynamicComponents);
+    // We'll prioritize common terms based on the screenshot (Bottle, Cap, Carton, Labour, Freight)
+    const orderedComps = ['BOTTLE', 'CAP', 'CARTON', 'LABOUR', 'FREIGHT', 'AMPOULE', 'TRAY', 'FBB BOX', 'INNER BOX', 'OUTER BOX'];
+    const compArray = Array.from(dynamicComponents).filter(c => c.toUpperCase() !== 'LABEL');
     compArray.sort((a, b) => {
       const idxA = orderedComps.indexOf(a.toUpperCase());
       const idxB = orderedComps.indexOf(b.toUpperCase());
@@ -57,6 +60,7 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     compArray.forEach(compName => {
       // Shorten names for table header
       let shortName = compName.charAt(0).toUpperCase() + compName.slice(1).toLowerCase();
+      if (shortName.toLowerCase().includes('ampoule')) shortName = 'Ampoule';
       columns.push({ label: `${shortName} (₹)`, key: `comp_${compName}`, width: 35 });
     });
 
@@ -64,7 +68,6 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
   } else {
     // Factory view specific columns if needed
     columns.push(
-      { label: 'Pack Ltr/KG', key: 'pack_wise_ltr_kg', width: 50 },
       { label: 'Total Ltr/KG', key: 'total_ltr_kg', width: 50 },
       { label: 'Total Cases', key: 'total_cases', width: 50 }
     );
@@ -93,37 +96,86 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
   }
 
   // ── DRAW HEADER ──
-  const headerHeight = 35;
-  doc.rect(margin, currentY, pageWidth, headerHeight).fill('#1B5E20'); // Dark Green
+  const materialCols = columns.filter(c => c.key.startsWith('comp_'));
+  const headerHeight = (!isFactoryView && materialCols.length > 0) ? 45 : 25;
+  
+  doc.rect(margin, currentY, pageWidth, headerHeight).fillAndStroke('#1B5E20', '#1B5E20');
   
   doc.fillColor('#FFFFFF').font('NotoSans-Bold').fontSize(8);
   let currentX = margin;
   
-  columns.forEach(col => {
-    // Center align text vertically and horizontally
-    doc.text(col.label, currentX + 2, currentY + 12, {
-      width: col.width - 4,
-      align: 'center',
+  if (!isFactoryView && materialCols.length > 0) {
+    // 2-tier header
+    columns.forEach(col => {
+      const isMaterialCol = materialCols.includes(col);
+      if (isMaterialCol) {
+        doc.text(col.label, currentX, currentY + 23, { width: col.width, align: 'center' });
+      } else {
+        doc.text(col.label, currentX, currentY + 16, { width: col.width, align: 'center' });
+      }
+      currentX += col.width;
     });
-    // Draw vertical separator
-    doc.moveTo(currentX, currentY).lineTo(currentX, currentY + headerHeight).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
-    currentX += col.width;
-  });
-  // Rightmost border
-  doc.moveTo(currentX, currentY).lineTo(currentX, currentY + headerHeight).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
 
+    const startMatX = margin + columns.slice(0, columns.indexOf(materialCols[0])).reduce((sum, c) => sum + c.width, 0);
+    const matTotalW = materialCols.reduce((sum, c) => sum + c.width, 0);
+    doc.text('Packing Material Costs', startMatX, currentY + 6, { width: matTotalW, align: 'center' });
+    
+    // Subheader divider
+    doc.moveTo(startMatX, currentY + 20).lineTo(startMatX + matTotalW, currentY + 20).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
+    
+    // Vertical dividers in header
+    let lineX = margin;
+    columns.forEach(col => {
+      if (col !== columns[0]) {
+        if (materialCols.includes(col) && col !== materialCols[0]) {
+          doc.moveTo(lineX, currentY + 20).lineTo(lineX, currentY + headerHeight).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
+        } else {
+          doc.moveTo(lineX, currentY).lineTo(lineX, currentY + headerHeight).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
+        }
+      }
+      lineX += col.width;
+    });
+  } else {
+    // Standard 1-tier header
+    columns.forEach(col => {
+      doc.text(col.label, currentX, currentY + 8, { width: col.width, align: 'center' });
+      currentX += col.width;
+    });
+    let lineX = margin;
+    columns.forEach(col => {
+      if (col !== columns[0]) {
+        doc.moveTo(lineX, currentY).lineTo(lineX, currentY + headerHeight).strokeColor('#FFFFFF').lineWidth(0.5).stroke();
+      }
+      lineX += col.width;
+    });
+  }
+  
   currentY += headerHeight;
 
   // ── DRAW ROWS ──
-  doc.font('NotoSans').fontSize(8);
-
   quotationData.rows.forEach((row, index) => {
+    // Check if we need a new page
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 40;
+      doc.rect(margin, currentY, pageWidth, headerHeight).fill('#204938');
+      doc.fillColor('#FFFFFF').font('NotoSans-Bold').fontSize(8);
+      // Redraw header (simplified for pagination)
+      let tempX = margin;
+      columns.forEach(col => {
+        doc.text(col.label, tempX, currentY + (headerHeight === 35 && !col.key.startsWith('comp_') ? 12 : 6), { width: col.width, align: 'center' });
+        tempX += col.width;
+      });
+      currentY += headerHeight;
+    }
+
     // Prepare row data
     const rowData = {};
     const packLtrKg = row.pack_size_value * parseUnitMultiplier(row.pack_size_unit);
     
     rowData['sr'] = index + 1;
-    const productName = row.products?.product_name || row.product?.product_name || row.product_name || quotationData.products?.product_name || quotationData.material_name || 'N/A';
+    rowData['product_code'] = row.products?.product_code || row.product?.product_code || quotationData.products?.product_code || '-';
+    const productName = row.products?.product_name || row.product?.product_name || row.product_name || quotationData.products?.product_name || quotationData.material_name || (quotationData.order_type === 'bulk' ? row.packing_type : null) || 'N/A';
     const technical = row.products?.technical_combination || row.product?.technical_combination || row.technical_combination || quotationData.products?.technical_combination || '';
 
     let productNameText = productName;
@@ -147,8 +199,8 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
       });
       rowData['row_amount'] = row.row_amount || 0;
     } else {
-      rowData['pack_wise_ltr_kg'] = packLtrKg.toFixed(2);
-      rowData['total_ltr_kg'] = (row.total_pcs * packLtrKg).toFixed(2);
+      rowData['pack_wise_ltr_kg'] = Number(packLtrKg.toFixed(4));
+      rowData['total_ltr_kg'] = Number((row.total_pcs * packLtrKg).toFixed(4));
       rowData['total_cases'] = row.total_cases || 0;
       
       if (hasAmpoule && row.packing_type && row.packing_type.toLowerCase().includes('ampoule')) {

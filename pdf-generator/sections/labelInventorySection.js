@@ -18,15 +18,19 @@ function formatLocalCurrency(amount) {
  * Rendered only when a label component is checked.
  *
  * @param {PDFDocument} doc
- * @param {Object} labelData - Aggregated label section info
+ * @param {Array|Object} labelDataInput - Aggregated label section info (array or single object)
  * @param {number} startY
  */
-function generateLabelInventorySection(doc, labelData, startY, isFactoryView = false) {
-  if (!labelData) return startY; // skip if no data
+function generateLabelInventorySection(doc, labelDataInput, startY, isFactoryView = false) {
+  if (!labelDataInput) return startY; // skip if no data
+  
+  // Normalize to array
+  const labelDataArray = Array.isArray(labelDataInput) ? labelDataInput : [labelDataInput];
+  if (labelDataArray.length === 0) return startY;
 
   const margin = 20;
   const pageWidth = doc.page.width - (margin * 2);
-  let currentY = startY + 20; // Some spacing
+  let currentY = startY + 40; // Increased spacing
 
   // Section Title
   doc
@@ -37,24 +41,22 @@ function generateLabelInventorySection(doc, labelData, startY, isFactoryView = f
 
   currentY += 15;
 
-  // Table Columns Setup
   const columns = [
-    { label: 'Brand Name', key: 'brand_name', width: 80 },
-    { label: 'Pack Type', key: 'pack_type', width: 60 },
-    { label: 'Pack Size', key: 'pack_size', width: 50 },
-    { label: 'Open Stock', key: 'open_stock', width: 60 },
-    { label: 'Make', key: 'make', width: 50 },
-    { label: 'Total Stock', key: 'total_stock', width: 60 },
-    { label: 'Used', key: 'used', width: 50 },
-    { label: 'Closing Stock', key: 'closing_stock', width: 70 },
+    { label: 'PRODUCT', key: 'product_name', width: 70 },
+    { label: 'PACK TYPE', key: 'pack_type', width: 60 },
+    { label: 'PACK SIZE', key: 'pack_size', width: 60 },
+    { label: 'Available Stock', key: 'open_stock', width: 60 },
+    { label: 'LABEL MADE', key: 'make', width: 55 },
+    { label: 'TOTAL STOCK', key: 'total_stock', width: 60 },
+    { label: 'LABEL USED', key: 'used', width: 55 },
+    { label: 'CLO. STOCK', key: 'closing_stock', width: 60 },
   ];
 
   if (!isFactoryView) {
     columns.push(
-      { label: 'Rate', key: 'rate', width: 50 },
-      { label: 'Amount', key: 'amount', width: 70 },
-      { label: 'GST', key: 'gst', width: 50 },
-      { label: 'Total with GST', key: 'total_with_gst', width: 80 }
+      { label: 'RATE', key: 'rate', width: 40 },
+      { label: 'AMOUNT', key: 'amount', width: 50 },
+      { label: 'GST', key: 'gst', width: 50 }
     );
   }
 
@@ -65,12 +67,12 @@ function generateLabelInventorySection(doc, labelData, startY, isFactoryView = f
     columns.forEach(col => col.width = col.width * scale);
   }
 
-  // Header Background (Light Yellow)
+  // Header Background (Dark Green)
   const headerHeight = 25;
-  doc.rect(margin, currentY, pageWidth, headerHeight).fill('#FFF9C4'); // Light yellow
+  doc.rect(margin, currentY, pageWidth, headerHeight).fillAndStroke('#1B5E20', '#1B5E20');
   
   // Header Text
-  doc.fillColor('#333333').font('NotoSans-Bold').fontSize(7);
+  doc.fillColor('#FFFFFF').font('NotoSans-Bold').fontSize(7);
   let currentX = margin;
   columns.forEach(col => {
     doc.text(col.label, currentX + 2, currentY + 7, {
@@ -81,32 +83,80 @@ function generateLabelInventorySection(doc, labelData, startY, isFactoryView = f
   });
 
   currentY += headerHeight;
+  const tableStartY = currentY;
 
-  // Draw Data Row
+  // Draw Data Rows
   const rowHeight = 20;
-  doc.rect(margin, currentY, pageWidth, rowHeight).stroke('#CCCCCC'); // Bordered row
-  doc.font('NotoSans').fontSize(7);
-  currentX = margin;
+  
+  let totalPayableAmount = 0;
+  let hasNewBatch = false;
 
-  columns.forEach(col => {
-    let value = labelData[col.key] != null ? labelData[col.key] : '-';
-    
-    // Formatting financials
-    if (['rate', 'amount', 'gst', 'total_with_gst'].includes(col.key)) {
-      value = formatLocalCurrency(labelData[col.key]);
+  labelDataArray.forEach((labelData, i) => {
+    // Add page if needed
+    if (currentY > doc.page.height - 100) {
+       // Optional: close grid and draw new page, but assuming it fits for now.
     }
 
-    doc.text(value.toString(), currentX + 2, currentY + 6, {
-      width: col.width - 4,
-      align: 'center',
+    doc.rect(margin, currentY, pageWidth, rowHeight).stroke('#CCCCCC'); // Bordered row
+    doc.font('NotoSans').fontSize(7).fillColor('#333333');
+    currentX = margin;
+
+    columns.forEach(col => {
+      let value = labelData[col.key] != null ? labelData[col.key] : '-';
+      
+      // Formatting financials
+      if (['rate', 'amount', 'gst', 'total_with_gst'].includes(col.key)) {
+        value = formatLocalCurrency(labelData[col.key]);
+      }
+
+      doc.text(value.toString(), currentX + 2, currentY + 6, {
+        width: col.width - 4,
+        align: 'center',
+      });
+      currentX += col.width;
     });
-    currentX += col.width;
+    
+    if (labelData.is_new_batch) {
+      hasNewBatch = true;
+      totalPayableAmount += parseFloat(labelData.total_with_gst) || 0;
+    }
+
+    currentY += rowHeight;
   });
 
-  // Outline the whole table
-  doc.rect(margin, currentY - headerHeight, pageWidth, headerHeight + rowHeight).stroke('#CCCCCC');
+  // Draw Vertical Grid lines
+  let lineX = margin;
+  columns.forEach(col => {
+    doc.moveTo(lineX, tableStartY - headerHeight).lineTo(lineX, currentY).strokeColor('#CCCCCC').lineWidth(0.5).stroke();
+    lineX += col.width;
+  });
+  doc.moveTo(lineX, tableStartY - headerHeight).lineTo(lineX, currentY).strokeColor('#CCCCCC').lineWidth(0.5).stroke();
+  // Bottom border of the last row is already drawn by rect, but just in case:
+  doc.moveTo(margin, currentY).lineTo(margin + pageWidth, currentY).strokeColor('#CCCCCC').lineWidth(0.5).stroke();
 
-  return currentY + rowHeight + 10;
+
+  // "TOTAL PAYABLE AMOUNT Rs." row (only if new batch)
+  if (!isFactoryView && hasNewBatch) {
+    const totalRowHeight = 15;
+    doc.rect(margin, currentY, pageWidth, totalRowHeight).fill('#FFF9C4');
+    
+    // The total amount column starts after the text. The text "TOTAL PAYABLE AMOUNT Rs." aligns right in the space before the GST column.
+    doc.fillColor('#333333').font('NotoSans-Bold').fontSize(7);
+    doc.text('TOTAL PAYABLE AMOUNT Rs.', margin, currentY + 4, {
+      width: pageWidth - columns[columns.length - 1].width - 10,
+      align: 'right'
+    });
+    
+    doc.text(formatLocalCurrency(totalPayableAmount), margin + pageWidth - columns[columns.length - 1].width, currentY + 4, {
+      width: columns[columns.length - 1].width - 4,
+      align: 'right' 
+    });
+
+    doc.rect(margin, currentY, pageWidth, totalRowHeight).stroke('#CCCCCC');
+    currentY += totalRowHeight;
+  }
+
+  return currentY + 10;
 }
 
 module.exports = { generateLabelInventorySection };

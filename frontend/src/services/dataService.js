@@ -73,3 +73,7 @@ export const bulkPriceService = {
   update: (id, data) => api.put(`/bulk-prices/${id}`, data),
   remove: (id) => api.delete(`/bulk-prices/${id}`),
 };
+
+export const reportService = {
+  downloadOrdersExcel: (range) => api.get('/reports/orders-excel', { params: { range }, responseType: 'blob' }),
+};

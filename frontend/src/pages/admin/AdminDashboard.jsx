@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminService } from '../../services/dataService';
+import { adminService, reportService } from '../../services/dataService';
 import Badge from '../../components/common/Badge';
+import Button from '../../components/common/Button';
 import { TableSkeleton } from '../../components/common/Loader';
 import {
   ShoppingCart, Clock, IndianRupee, UsersRound,
   CheckCircle2, Cog, Package, Truck, CircleCheckBig,
-  ArrowRight, MoreVertical, ChevronRight
+  ArrowRight, MoreVertical, ChevronRight, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 function formatINR(amount) {
   if (amount == null) return '₹0';
@@ -47,14 +49,57 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [downloading, setDownloading] = useState('');
+
+  const handleDownloadReport = async (range) => {
+    try {
+      setDownloading(range);
+      const { data } = await reportService.downloadOrdersExcel(range);
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const dateSuffix = range === 'today' ? new Date().toISOString().split('T')[0] : new Date().toISOString().slice(0, 7);
+      a.download = `volkschem_orders_${range === 'today' ? 'daily' : 'monthly'}_${dateSuffix}.xlsx`;
+      
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Report downloaded successfully!');
+    } catch (err) {
+      toast.error('Failed to download report.');
+    } finally {
+      setDownloading('');
+    }
+  };
+
   const today = format(new Date(), 'EEEE, dd MMMM yyyy');
 
   return (
     <div className="animate-fade-in">
       {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        <p className="text-sm text-text-secondary mt-0.5">{today}</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+          <p className="text-sm text-text-secondary mt-0.5">{today}</p>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            variant="secondary" 
+            icon={Download} 
+            loading={downloading === 'today'}
+            onClick={() => handleDownloadReport('today')}
+          >
+            Download Today's Orders
+          </Button>
+          <Button 
+            variant="primary" 
+            icon={Download} 
+            loading={downloading === 'monthly'}
+            onClick={() => handleDownloadReport('monthly')}
+          >
+            Download Monthly Orders
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

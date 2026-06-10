@@ -4,11 +4,14 @@ import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
 import { LayoutDashboard, Plus, FileText, Search } from 'lucide-react';
 
+import { Users } from 'lucide-react';
+
 const employeeMenu = [
   { icon: Plus,             label: 'Create Quotation', path: '/employee/create-quotation' },
   { icon: FileText,         label: 'My Orders',        path: '/employee/my-orders' },
   { icon: Plus,             label: 'Create Bulk Quotation', path: '/employee/create-bulk' },
   { icon: Search,           label: 'Search Bulk Price', path: '/employee/bulk-price' },
+  { icon: Users,            label: 'Customer Directory',path: '/employee/customers' },
 ];
 
 export default function EmployeePortal() {

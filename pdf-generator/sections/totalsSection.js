@@ -22,10 +22,10 @@ function generateTotalsSection(doc, quotationData, startY) {
   const drawRow = (label, value, isGrandTotal = false, isCurrency = true) => {
     // Background and border
     if (isGrandTotal) {
-      doc.rect(boxX, currentY, boxWidth, rowHeight).fillAndStroke('#1B5E20', '#CCCCCC');
+      doc.rect(boxX, currentY, boxWidth, rowHeight).fillAndStroke('#1B5E20', '#1B5E20');
       doc.fillColor('#FFFFFF');
     } else {
-      doc.rect(boxX, currentY, boxWidth, rowHeight).fillAndStroke('#FFFFFF', '#CCCCCC');
+      doc.rect(boxX, currentY, boxWidth, rowHeight).fillAndStroke('#EAEAEA', '#CCCCCC');
       doc.fillColor('#333333');
     }
 
@@ -51,17 +51,66 @@ function generateTotalsSection(doc, quotationData, startY) {
     qtyLabel = 'Total Qty (Pcs)';
   }
 
+  // Calculate Label Total
+  let labelTotal = 0;
+  if (quotationData.rows) {
+    quotationData.rows.forEach(r => {
+      if (r.label_snapshot) {
+        const snap = r.label_snapshot;
+        if (snap.is_new_batch) {
+          labelTotal += snap.current_batch_total;
+        }
+      }
+    });
+  }
+
+  // Draw Totals Rows
+  const startTotalsY = currentY;
   drawRow(qtyLabel, totalQty, false, false);
   drawRow('Subtotal', quotationData.subtotal);
+  drawRow('GST 18%', quotationData.total_gst || 0);
   
-  // Calculate CGST and SGST (assuming total_gst is 18%, so 9% each)
-  const halfGst = (quotationData.total_gst || 0) / 2;
-  drawRow('CGST 9%', halfGst);
-  drawRow('SGST 9%', halfGst);
+  if (labelTotal > 0) {
+    drawRow('Label Total', labelTotal);
+  }
   
   drawRow('Grand Total', quotationData.grand_total, true);
 
-  return currentY;
+  const endTotalsY = currentY;
+
+  // ── Payment Details Box (Left Aligned) ──────────────────────────────────
+  const path = require('path');
+  const paymentBoxWidth = 250;
+  const paymentBoxHeight = 85;
+  const paymentBoxX = margin;
+  const paymentY = startTotalsY; // Align with the top of the Totals Box
+
+  // Header for Payment Details
+  const paymentHeaderHeight = 20;
+  doc.rect(paymentBoxX, paymentY, paymentBoxWidth, paymentHeaderHeight).fillAndStroke('#1B5E20', '#1B5E20');
+  doc.font('NotoSans-Bold').fontSize(9).fillColor('#FFFFFF');
+  doc.text('PAYMENT DETAILS', paymentBoxX, paymentY + 5, { width: paymentBoxWidth, align: 'center' });
+
+  // Body of Payment Details
+  doc.rect(paymentBoxX, paymentY + paymentHeaderHeight, paymentBoxWidth, paymentBoxHeight - paymentHeaderHeight).stroke('#1B5E20');
+  
+  doc.font('NotoSans-Bold').fontSize(7).fillColor('#333333');
+  const detailsY = paymentY + 25;
+  doc.text('Beneficiary Name: ', paymentBoxX + 5, detailsY, { continued: true }).font('NotoSans').text('Volkschem Crop Science Pvt.Ltd.');
+  doc.font('NotoSans-Bold').text('Bank Name: ', paymentBoxX + 5, detailsY + 12, { continued: true }).font('NotoSans').text('Canara bank');
+  doc.font('NotoSans-Bold').text('Account Number: ', paymentBoxX + 5, detailsY + 24, { continued: true }).font('NotoSans').text('3190261000035');
+  doc.font('NotoSans-Bold').text('IFSC Code: ', paymentBoxX + 5, detailsY + 36, { continued: true }).font('NotoSans').text('CNRB0003190');
+  doc.font('NotoSans-Bold').text('Branch: ', paymentBoxX + 5, detailsY + 48, { continued: true }).font('NotoSans').text('Rakanpur - 382721');
+
+  // QR Code
+  try {
+    const qrPath = path.resolve(__dirname, '../../assets/logo/pay-qr.jpeg');
+    const qrSize = 40;
+    doc.image(qrPath, paymentBoxX + paymentBoxWidth - qrSize - 10, detailsY + 5, { width: qrSize, height: qrSize });
+    doc.font('NotoSans').fontSize(6).text('Scan to Pay', paymentBoxX + paymentBoxWidth - qrSize - 10, detailsY + qrSize + 8, { width: qrSize, align: 'center' });
+  } catch (err) {}
+
+  return Math.max(endTotalsY, paymentY + paymentBoxHeight) + 20;
 }
 
 module.exports = { generateTotalsSection };

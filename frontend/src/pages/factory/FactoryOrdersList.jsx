@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { orderService } from '../../services/dataService';
+import { orderService, quotationService } from '../../services/dataService';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
@@ -58,6 +58,21 @@ export default function FactoryOrdersList() {
     }
   };
 
+  const handleDownloadPdf = async (e, r, type) => {
+    e.stopPropagation();
+    try {
+      const { data } = await quotationService.downloadPDF(r.quotations?.id, type);
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${r.quotations?.quotation_number}_${type === 'factory' ? 'supervisor' : type}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { 
+      toast.error('Download failed.'); 
+    }
+  };
+
   const handleUpdateComplete = () => {
     setUpdateModalOpen(false);
     fetchOrders();
@@ -69,7 +84,11 @@ export default function FactoryOrdersList() {
         {r.id.substring(r.id.length - 8).toUpperCase()}
       </button>
     )},
-    { key: 'customer_name', header: 'Customer', accessor: (r) => r.quotations?.customer_name, render: (r) => r.quotations?.customer_name || '-' },
+    { key: 'product_id', header: 'Product ID', render: (r) => {
+      const rows = r.quotations?.quotation_rows || [];
+      const productIds = Array.from(new Set(rows.map(row => row.products?.product_code).filter(Boolean)));
+      return productIds.length > 0 ? productIds.join(', ') : '-';
+    }},
     { key: 'product', header: 'Product & Brand', render: (r) => {
       const rows = r.quotations?.quotation_rows || [];
       const productNames = Array.from(new Set(rows.map(row => row.products?.product_name).filter(Boolean)));
@@ -136,11 +155,17 @@ export default function FactoryOrdersList() {
 
               <p className="font-bold text-text-primary mb-1">{row.total_pcs} Pcs ({row.packing_type}s) — {row.pack_size_value}{row.pack_size_unit}</p>
               {row.packing_type?.toLowerCase() === 'ampoule' && (
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-text-muted mt-1.5">
-                  <div>Trays / FBB: <span className="font-semibold text-text-primary">{Math.ceil(row.total_pcs / 5)}</span></div>
-                  <div>Inner Boxes: <span className="font-semibold text-text-primary">{Math.ceil(row.total_pcs / 50)}</span></div>
-                  <div>Outer Boxes (Cases): <span className="font-semibold text-text-primary">{row.total_cases}</span></div>
-                </div>
+                (() => {
+                  const pSize = `${row.pack_size_value}${row.pack_size_unit?.toLowerCase()}`;
+                  const spec = AMPOULE_PACKAGING[pSize] || AMPOULE_PACKAGING['10ml'];
+                  return (
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-text-muted mt-1.5">
+                      <div>Trays / FBB: <span className="font-semibold text-text-primary">{Math.ceil(row.total_pcs / spec.fbbBoxPcs)}</span></div>
+                      <div>Inner Boxes: <span className="font-semibold text-text-primary">{Math.ceil(row.total_pcs / spec.innerBoxPcs)}</span></div>
+                      <div>Outer Boxes (Cases): <span className="font-semibold text-text-primary">{row.total_cases}</span></div>
+                    </div>
+                  );
+                })()
               )}
               {row.packing_type?.toLowerCase() !== 'ampoule' && (
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-text-muted mt-1.5">
@@ -181,22 +206,35 @@ export default function FactoryOrdersList() {
     { key: 'actions', header: 'Action', sortable: false, render: (r) => (
       <div className="flex flex-col gap-1 items-end">
         <Button 
-          variant={r.current_status === 'dispatched' || r.current_status === 'ready_to_dispatch' ? 'ghost' : 'primary'} 
+          variant={r.current_status === 'dispatched' ? 'ghost' : 'primary'} 
           size="sm" 
           onClick={(e) => { e.stopPropagation(); handleOpenUpdate(r); }}
-          className="w-full justify-between whitespace-nowrap"
-          disabled={r.current_status === 'dispatched' || r.current_status === 'ready_to_dispatch'}
         >
-          {r.current_status === 'dispatched' || r.current_status === 'ready_to_dispatch' ? 'Managed in Dispatch' : 'Update Status'} 
-          {r.current_status !== 'dispatched' && r.current_status !== 'ready_to_dispatch' && <ChevronDown size={14} />}
+          {r.current_status === 'dispatched' ? 'View Status' : 'Update Status'}
         </Button>
-        <button 
-          onClick={(e) => handleDelete(e, r.id)}
-          className="text-error/80 hover:text-error hover:bg-error/10 p-1.5 rounded transition-colors mt-1"
-          title="Delete Order"
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="flex gap-1 mt-1">
+          <button 
+            onClick={(e) => handleDownloadPdf(e, r, 'production')}
+            className="text-action/80 hover:text-action hover:bg-action/10 p-1.5 rounded transition-colors"
+            title="Download Production PDF"
+          >
+            <FileText size={16} />
+          </button>
+          <button 
+            onClick={(e) => handleDownloadPdf(e, r, 'factory')}
+            className="text-primary/80 hover:text-primary hover:bg-primary/10 p-1.5 rounded transition-colors"
+            title="Download Supervisor PDF"
+          >
+            <Download size={16} />
+          </button>
+          <button 
+            onClick={(e) => handleDelete(e, r.id)}
+            className="text-error/70 hover:text-error hover:bg-error/10 p-1.5 rounded transition-colors"
+            title="Delete Order"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
     )},
   ];

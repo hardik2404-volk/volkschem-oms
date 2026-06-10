@@ -98,6 +98,7 @@ export default function ProductMaster() {
 
   const columns = [
     { key: 'product_name', header: 'Product Name', accessor: 'product_name' },
+    { key: 'product_code', header: 'Product ID', render: (r) => <span className="font-medium text-text-secondary">{r.product_code || '-'}</span> },
     { key: 'technical_combination', header: 'Technical Combination', render: (r) => <span className="text-xs text-text-secondary max-w-[200px] truncate block">{r.technical_combination || '-'}</span> },
     { key: 'bulk_material_rate', header: 'Bulk Material Rate (₹/Ltr or Kg)', render: (r) => <span className="font-medium">{r.bulk_rate_per_ltr_kg?.toLocaleString('en-IN') || '-'}</span> },
     { key: 'order_type', header: 'Packing Label Type', render: (r) => <Badge status={r.order_type} /> },
@@ -134,7 +135,7 @@ export default function ProductMaster() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Product Name" value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} required />
-            <Input label="Product Code" value={form.product_code} onChange={(e) => setForm({ ...form, product_code: e.target.value })} required />
+            <Input label="Product ID" value={form.product_code} onChange={(e) => setForm({ ...form, product_code: e.target.value })} required />
           </div>
           <Input label="Technical Combination" type="textarea" rows={2} value={form.technical_combination} onChange={(e) => setForm({ ...form, technical_combination: e.target.value })} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

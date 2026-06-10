@@ -8,7 +8,7 @@ function generateAmpouleStructureSection(doc, quotationData, startY) {
   const ampouleRows = quotationData.rows.filter(r => r.packing_type && r.packing_type.toLowerCase().includes('ampoule'));
   if (ampouleRows.length === 0) return startY;
 
-  const margin = 40;
+  const margin = 30; // Aligned with product table
   let currentY = startY;
 
   if (currentY > doc.page.height - 120) {
@@ -16,14 +16,17 @@ function generateAmpouleStructureSection(doc, quotationData, startY) {
     currentY = margin;
   }
 
-  doc.rect(margin, currentY, 500, 15).fill('#1B5E20');
+  const pageWidth = doc.page.width - (margin * 2);
+
+  doc.rect(margin, currentY, pageWidth, 15).fill('#1B5E20');
   doc.fillColor('#FFFFFF').font('NotoSans-Bold').fontSize(8);
   
+  const colWidth = pageWidth / 4;
   const cols = [
-    { label: 'INNER BOX FOR AMPOULES', x: margin, w: 200 },
-    { label: 'OUTER BOX', x: margin + 200, w: 100 },
-    { label: 'FBB BOX', x: margin + 300, w: 100 },
-    { label: 'TRAY', x: margin + 400, w: 100 }
+    { label: 'INNER BOX FOR AMPOULES', x: margin, w: colWidth },
+    { label: 'OUTER BOX', x: margin + colWidth, w: colWidth },
+    { label: 'FBB BOX', x: margin + (colWidth * 2), w: colWidth },
+    { label: 'TRAY', x: margin + (colWidth * 3), w: colWidth }
   ];
 
   cols.forEach(c => doc.text(c.label, c.x + 2, currentY + 4, { width: c.w - 4, align: 'center' }));
@@ -36,7 +39,7 @@ function generateAmpouleStructureSection(doc, quotationData, startY) {
 
   sizes.forEach((size, i) => {
     const isEven = i % 2 === 0;
-    doc.rect(margin, currentY, 500, 15).fill(isEven ? '#F9F9F9' : '#FFFFFF');
+    doc.rect(margin, currentY, pageWidth, 15).fill(isEven ? '#F9F9F9' : '#FFFFFF');
     doc.fillColor('#333333');
 
     const spec = AMPOULE_PACKAGING[size];
@@ -57,14 +60,7 @@ function generateAmpouleStructureSection(doc, quotationData, startY) {
     currentY += 15;
   });
 
-  // Notes
-  currentY += 5;
-  doc.font('NotoSans-Bold').fontSize(8).fillColor('#333333');
-  doc.text('NOTE: FBB BOX PLAIN WHITE (WITHOUT PRINT)', margin, currentY);
-  currentY += 12;
-  doc.text('NOTE: MOQ (Minimum Order Quantity) EACH PACK SIZE 1000 NOS', margin, currentY);
-
-  return currentY + 20;
+  return currentY + 10;
 }
 
 module.exports = { generateAmpouleStructureSection };

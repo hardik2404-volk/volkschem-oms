@@ -1,12 +1,15 @@
 import { useQuotation } from '../../context/QuotationContext';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/common/Input';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 export default function Step2CustomerDetails() {
   const { state, updateHeader } = useQuotation();
   const { user } = useAuth();
   const h = state.header;
+  const [customers, setCustomers] = useState([]);
 
   // Auto-fill employee name on mount
   useEffect(() => {
@@ -15,10 +18,62 @@ export default function Step2CustomerDetails() {
     }
   }, [user]);
 
+  // Fetch customers
+  useEffect(() => {
+    api.get('/customers').then(res => setCustomers(res.data.data)).catch(err => console.error(err));
+  }, []);
+
+  const handleCustomerSelect = (e) => {
+    const selectedId = e.target.value;
+    if (!selectedId) return;
+    const c = customers.find(x => x.id === selectedId);
+    if (c) {
+      updateHeader('customer_id', c.id);
+      updateHeader('billing_name', c.customer_name);
+      updateHeader('customer_name', c.customer_name);
+      updateHeader('customer_contact', c.contact_number || '');
+      updateHeader('gst_pan', c.gst_pan || '');
+      updateHeader('billing_address', c.billing_address || '');
+      updateHeader('transport_name', c.transport_name || '');
+      updateHeader('destination', c.destination || '');
+      toast.success('Customer details auto-filled!');
+    }
+  };
+
+  const handleCustomerNameBlur = (val) => {
+    if (!val) return;
+    const c = customers.find(x => x.customer_name.trim().toLowerCase() === val.trim().toLowerCase());
+    if (c) {
+      // Auto fill only if currently empty to avoid overwriting user input
+      let filled = false;
+      if (!h.customer_id) { updateHeader('customer_id', c.id); filled = true; }
+      if (!h.billing_name) { updateHeader('billing_name', c.customer_name); filled = true; }
+      if (!h.customer_contact && c.contact_number) { updateHeader('customer_contact', c.contact_number); filled = true; }
+      if (!h.gst_pan && c.gst_pan) { updateHeader('gst_pan', c.gst_pan); filled = true; }
+      if (!h.billing_address && c.billing_address) { updateHeader('billing_address', c.billing_address); filled = true; }
+      if (!h.transport_name && c.transport_name) { updateHeader('transport_name', c.transport_name); filled = true; }
+      if (!h.destination && c.destination) { updateHeader('destination', c.destination); filled = true; }
+      if (filled) toast.success('Customer details auto-filled!');
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
-      <h2 className="text-xl font-bold text-text-primary mb-2">Customer & Order Details</h2>
-      <p className="text-sm text-text-secondary mb-6">Enter customer information and delivery details</p>
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-text-primary mb-2">Customer & Order Details</h2>
+          <p className="text-sm text-text-secondary">Enter customer information and delivery details</p>
+        </div>
+        <div className="w-64">
+          <label className="block text-sm font-medium text-text-secondary mb-1">Quick Select Customer</label>
+          <select className="input-field py-1.5 text-sm" onChange={handleCustomerSelect} defaultValue="">
+            <option value="" disabled>-- Select Existing Customer --</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.customer_name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div className="space-y-5">
         {/* Company Name */}
@@ -39,7 +94,7 @@ export default function Step2CustomerDetails() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input label="Employee Name" value={h.employee_name} onChange={(e) => updateHeader('employee_name', e.target.value)} required />
-          <Input label="Customer Name" value={h.customer_name} onChange={(e) => updateHeader('customer_name', e.target.value)} required />
+          <Input label="Customer Name" value={h.customer_name} onChange={(e) => updateHeader('customer_name', e.target.value)} onBlur={(e) => handleCustomerNameBlur(e.target.value)} required />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -67,6 +122,19 @@ export default function Step2CustomerDetails() {
         </div>
 
         <Input label="Quotation Date" type="date" value={h.quotation_date} onChange={(e) => updateHeader('quotation_date', e.target.value)} />
+
+        <div className="flex items-center gap-2 mt-4">
+          <input 
+            type="checkbox" 
+            id="saveCustomer" 
+            className="w-4 h-4 text-primary bg-surface border-border rounded focus:ring-primary/50"
+            checked={h.save_to_directory || false}
+            onChange={(e) => updateHeader('save_to_directory', e.target.checked)}
+          />
+          <label htmlFor="saveCustomer" className="text-sm font-medium text-text-primary cursor-pointer">
+            Save this customer to the Customer Directory
+          </label>
+        </div>
       </div>
     </div>
   );

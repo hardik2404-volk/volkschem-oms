@@ -13,6 +13,7 @@ import CostSheetManager from '../pages/admin/CostSheetManager';
 import StaffManagement from '../pages/admin/StaffManagement';
 import LoginLogs from '../pages/admin/LoginLogs';
 import AdminOrdersView from '../pages/admin/AdminOrdersView';
+import CustomerDirectory from '../pages/admin/CustomerDirectory';
 
 // Employee Portal
 import EmployeePortal from '../portals/EmployeePortal';
@@ -52,6 +53,7 @@ export default function AppRoutes() {
           <Route path="products" element={<ProductMaster />} />
           <Route path="bulk-prices" element={<BulkPriceSection />} />
           <Route path="cost-sheet" element={<CostSheetManager />} />
+          <Route path="customers" element={<CustomerDirectory />} />
           <Route path="staff" element={<StaffManagement />} />
           <Route path="logs" element={<LoginLogs />} />
         </Route>
@@ -65,6 +67,7 @@ export default function AppRoutes() {
           <Route path="bulk-price" element={<BulkPriceSearch />} />
           <Route path="create-quotation" element={<ProductQuotationWizard />} />
           <Route path="create-bulk" element={<BulkQuotationForm />} />
+          <Route path="customers" element={<CustomerDirectory />} />
         </Route>
       </Route>
 

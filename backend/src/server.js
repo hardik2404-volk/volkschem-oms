@@ -20,6 +20,8 @@ const quotationRoutes = require('./routes/quotationRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const labelRoutes = require('./routes/labelRoutes');
 const bulkPriceRoutes = require('./routes/bulkPriceRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -103,6 +105,8 @@ app.use('/api/v1/quotations', quotationRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/labels', labelRoutes);
 app.use('/api/v1/bulk-prices', bulkPriceRoutes);
+app.use('/api/v1/customers', customerRoutes);
+app.use('/api/v1/reports', reportRoutes);
 
 // ── 404 Handler ─────────────────────────────────────────────────────────────
 

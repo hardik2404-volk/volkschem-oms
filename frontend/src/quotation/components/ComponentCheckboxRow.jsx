@@ -10,6 +10,7 @@ export default function ComponentCheckboxRow({
   divisionBreakdown = '',
   onCheckChange,
   onRateChange,
+  extraInput = null,
 }) {
   return (
     <tr className={`border-b border-border last:border-b-0 ${!isChecked ? 'opacity-50' : ''} transition-opacity`}>
@@ -31,17 +32,23 @@ export default function ComponentCheckboxRow({
       </td>
       <td className="px-3 py-2.5 text-center">
         {isReadOnlyRate ? (
-          <span className="text-sm font-medium text-text-primary">₹{appliedRate?.toFixed(2)}</span>
+          <span className="text-sm font-medium text-text-primary">₹{Number(appliedRate || 0).toFixed(2)}</span>
         ) : (
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={appliedRate}
-            onChange={(e) => onRateChange(parseFloat(e.target.value) || 0)}
-            disabled={!isChecked}
-            className="w-24 px-2 py-1.5 border border-border rounded-md text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary-lighter disabled:bg-surface-alt"
-          />
+          <div className="flex flex-col gap-1 items-center justify-center">
+            <input
+              type="text"
+              value={appliedRate}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                  onRateChange(val);
+                }
+              }}
+              disabled={!isChecked}
+              className="w-24 px-2 py-1.5 border border-border rounded-md text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary-lighter disabled:bg-surface-alt"
+            />
+            {isChecked && extraInput}
+          </div>
         )}
       </td>
       <td className="px-3 py-2.5 text-center">

@@ -28,6 +28,7 @@ export default function Step5ReviewSubmit() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
+  const isViewMode = searchParams.get('view') === 'true';
   const [saving, setSaving] = useState(false);
 
   const allItems = useMemo(() => {
@@ -44,7 +45,7 @@ export default function Step5ReviewSubmit() {
         packSizeUnit: state.packSizeUnit,
         rows: state.rows,
         components: state.components,
-        labelBatch: state.labelBatch,
+        labelData: state.labelData,
         isActive: true,
         lineItemIndex: -1,
       });
@@ -54,7 +55,9 @@ export default function Step5ReviewSubmit() {
 
   const overallSubtotal = allItems.reduce((acc, item) => acc + (item.rows[0]?.rowAmount || 0), 0);
   const overallGst = allItems.reduce((acc, item) => acc + (item.rows[0]?.gstAmount || 0), 0);
-  const overallLabels = allItems.reduce((acc, item) => acc + (item.labelBatch?.totalWithGst || 0), 0);
+  const overallLabels = (state.labelDataArray || []).reduce((acc, ld) => {
+    return acc + (ld?.isNewBatch ? (ld.totalLabelCost || 0) : 0);
+  }, 0);
   const grandTotal = overallSubtotal + overallGst + overallLabels;
 
   const buildPayload = (status) => ({
@@ -90,21 +93,7 @@ export default function Step5ReviewSubmit() {
     subtotal: overallSubtotal,
     total_gst: overallGst,
     grand_total: grandTotal,
-    // Note: We only keep label inventory for the first product to avoid payload complexity for now
-    label_batch: allItems[0]?.labelBatch || null,
-    label_inventory: allItems[0]?.labelBatch
-      ? {
-          pack_type: allItems[0].packingType,
-          pack_size: allItems[0].packSize,
-          make: allItems[0].labelBatch.quantity,
-          used: allItems[0].rows[0]?.totalPcs || 0,
-          closing_stock: allItems[0].labelBatch.closingStock,
-          rate: allItems[0].labelBatch.rate,
-          amount: allItems[0].labelBatch.amount,
-          gst: allItems[0].labelBatch.gst,
-          total_with_gst: allItems[0].labelBatch.totalWithGst,
-        }
-      : null,
+    labelDataArray: state.labelDataArray || [],
   });
 
   const handleSaveDraft = async () => {
@@ -173,9 +162,11 @@ export default function Step5ReviewSubmit() {
     <div className="animate-fade-in max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-text-primary">Review & Submit</h2>
-        <Button variant="outline" icon={Plus} onClick={handleAddAnotherProduct}>
-          Add Another Product
-        </Button>
+        {!isViewMode && (
+          <Button variant="outline" icon={Plus} onClick={handleAddAnotherProduct}>
+            Add Another Product
+          </Button>
+        )}
       </div>
 
       {/* ── Order Header ── */}
@@ -202,10 +193,12 @@ export default function Step5ReviewSubmit() {
             key={index} 
             title={`Product ${index + 1}: ${item.product?.product_name} (${item.packingType} - ${item.packSize})`}
             action={
-              <div className="flex gap-4">
-                <button onClick={() => handleEditProduct(item.isActive, item.lineItemIndex)} className="text-primary hover:underline text-xs font-medium">Edit</button>
-                <button onClick={() => handleDeleteProduct(item.isActive, item.lineItemIndex)} className="text-danger hover:underline text-xs font-medium">Remove</button>
-              </div>
+              !isViewMode && (
+                <div className="flex gap-4">
+                  <button onClick={() => handleEditProduct(item.isActive, item.lineItemIndex)} className="text-primary hover:underline text-xs font-medium">Edit</button>
+                  <button onClick={() => handleDeleteProduct(item.isActive, item.lineItemIndex)} className="text-danger hover:underline text-xs font-medium">Remove</button>
+                </div>
+              )
             }
           >
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
@@ -213,15 +206,43 @@ export default function Step5ReviewSubmit() {
                <div><p className="text-text-muted text-xs">Total Pieces</p><p className="font-semibold text-text-primary">{totalPcs.toLocaleString('en-IN')}</p></div>
                <div><p className="text-text-muted text-xs">Total Cases</p><p className="font-semibold text-text-primary">{totalCases.toLocaleString('en-IN')}</p></div>
                <div><p className="text-text-muted text-xs">Cost/Piece (Ex-GST)</p><p className="font-semibold text-primary">₹ {costPP.toFixed(2)}</p></div>
-               <div><p className="text-text-muted text-xs">Total Row Amount</p><p className="font-semibold text-text-primary">₹ {formatINR(item.rows?.[0]?.rowTotal)}</p></div>
+               <div><p className="text-text-muted text-xs">Total Row Amount</p><p className="font-semibold text-text-primary">{formatINR(item.rows?.[0]?.rowTotal)}</p></div>
              </div>
              
-             {item.labelBatch && (
-                <div className="flex items-center gap-2 mt-2 text-success text-xs font-medium bg-success-lighter/20 p-2 rounded">
-                  <CheckCircle2 size={14} />
-                  Label batch added (+ ₹{item.labelBatch.totalWithGst?.toFixed(2)} total)
-                </div>
-             )}
+             {(() => {
+               const ld = state.labelDataArray[index];
+               if (!ld) return null;
+               if (!ld.isNewBatch && !ld.includeInQuotation) return null;
+               
+               return (
+                 <div className={`mt-4 p-4 border rounded-lg ${ld.isNewBatch ? 'border-warning bg-warning-light/10' : 'border-success bg-success-light/10'}`}>
+                   <div className="flex justify-between items-center mb-2">
+                     <h4 className="font-semibold text-sm">{ld.isNewBatch ? 'New Label Batch Required' : 'Label Inventory Status'}</h4>
+                     {ld.isNewBatch && <span className="font-bold text-primary">+ {formatINR(ld.totalLabelCost)}</span>}
+                   </div>
+                   <table className="w-full text-xs text-left">
+                     <thead>
+                       <tr className="text-text-muted border-b">
+                         <th className="pb-1 font-medium">Pack Size</th>
+                         <th className="pb-1 font-medium text-right">Printed (Make)</th>
+                         <th className="pb-1 font-medium text-right">Used</th>
+                         <th className="pb-1 font-medium text-right">Closing Stock</th>
+                         {ld.isNewBatch && <th className="pb-1 font-medium text-right">Rate</th>}
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr>
+                         <td className="py-1">{ld.packSize}</td>
+                         <td className="py-1 text-right">{ld.isNewBatch ? ld.batchQuantity?.toLocaleString() : '0'}</td>
+                         <td className="py-1 text-right text-error">{ld.usedPcs?.toLocaleString()}</td>
+                         <td className="py-1 text-right font-medium">{ld.closingStockAfter?.toLocaleString()}</td>
+                         {ld.isNewBatch && <td className="py-1 text-right">₹{ld.ratePerLabel}</td>}
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               );
+             })()}
           </SectionCard>
         );
       })}
@@ -252,14 +273,16 @@ export default function Step5ReviewSubmit() {
       </div>
 
       {/* ── Action Buttons ── */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-        <Button variant="secondary" icon={Save} onClick={handleSaveDraft} loading={saving}>
-          Save as Draft
-        </Button>
-        <Button variant="warning" icon={Send} onClick={handleSubmit} loading={saving}>
-          Submit to Admin
-        </Button>
-      </div>
+      {!isViewMode && (
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+          <Button variant="secondary" icon={Save} onClick={handleSaveDraft} loading={saving}>
+            Save as Draft
+          </Button>
+          <Button variant="warning" icon={Send} onClick={handleSubmit} loading={saving}>
+            Submit to Admin
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

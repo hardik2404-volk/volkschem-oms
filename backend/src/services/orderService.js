@@ -105,10 +105,37 @@ async function updateOrderStatus(orderId, newStatus, note, updatedBy) {
     .from('orders')
     .update(updateData)
     .eq('id', orderId)
-    .select('id, current_status, factory_note, dispatch_note, dispatched_at')
+    .select('id, current_status, factory_note, dispatch_note, dispatched_at, quotation_id')
     .single();
 
   if (updateError) throw updateError;
+
+  // Deduct label inventory if dispatched
+  if (newStatus === 'dispatched' && updated.quotation_id) {
+    const labelService = require('./labelService');
+    const { data: quotation } = await supabase.from('quotations').select('customer_id').eq('id', updated.quotation_id).single();
+    
+    if (quotation && quotation.customer_id) {
+      const { data: rows } = await supabase.from('quotation_rows').select('id, product_id, pack_size_value, pack_size_unit, total_pcs, packing_type').eq('quotation_id', updated.quotation_id);
+      
+      if (rows && rows.length > 0) {
+        for (const row of rows) {
+          // Deduct regardless of whether the label was checked in this specific quotation
+          const packSizeStr = `${row.pack_size_value}${row.pack_size_unit}`;
+          try {
+            await labelService.deductLabelStock(
+              quotation.customer_id, 
+              row.product_id, 
+              packSizeStr, 
+              row.total_pcs
+            );
+          } catch (err) {
+            console.error(`Failed to deduct label inventory for order ${orderId}, row ${row.id}:`, err);
+          }
+        }
+      }
+    }
+  }
 
   // Log progress
   await supabase.from('order_progress').insert({
