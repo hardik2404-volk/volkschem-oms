@@ -6,21 +6,21 @@ import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, KeyRound, ToggleLeft, Trash2, Pencil } from 'lucide-react';
+import { Plus, Eye, ToggleLeft, Trash2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmployeePerformanceModal from './EmployeePerformanceModal';
 
 export default function StaffManagement() {
   const { user } = useAuth();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
+  const [performanceOpen, setPerformanceOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({ full_name: '', username: '', password: '', role: 'employee', phone: '', joining_date: '' });
-  const [newPassword, setNewPassword] = useState('');
 
   const fetchStaff = () => {
     setLoading(true);
@@ -74,18 +74,6 @@ export default function StaffManagement() {
     finally { setSaving(false); }
   };
 
-  const handleResetPassword = async () => {
-    if (!newPassword.trim() || newPassword.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
-    setSaving(true);
-    try {
-      await adminService.resetPassword(selectedStaff.id, { new_password: newPassword });
-      toast.success('Password reset successfully.');
-      setResetOpen(false);
-      setNewPassword('');
-    } catch { /* handled */ }
-    finally { setSaving(false); }
-  };
-
   const handleToggleStatus = async (staffMember) => {
     if (staffMember.id === user?.id) { toast.error('You cannot deactivate yourself.'); return; }
     if (!confirm(`${staffMember.is_active ? 'Deactivate' : 'Restore'} ${staffMember.full_name}?`)) return;
@@ -126,9 +114,9 @@ export default function StaffManagement() {
           className="p-1.5 hover:bg-surface-alt rounded-md text-text-secondary hover:text-primary transition-colors" title="Edit">
           <Pencil size={16} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); setSelectedStaff(r); setResetOpen(true); }}
-          className="p-1.5 hover:bg-surface-alt rounded-md text-text-secondary hover:text-primary transition-colors" title="Reset Password">
-          <KeyRound size={16} />
+        <button onClick={(e) => { e.stopPropagation(); setSelectedStaff(r); setPerformanceOpen(true); }}
+          className="p-1.5 hover:bg-surface-alt rounded-md text-text-secondary hover:text-primary transition-colors" title="View Performance">
+          <Eye size={16} />
         </button>
         <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(r); }}
           className={`p-1.5 rounded-md transition-colors ${r.is_active ? 'hover:bg-warning-light text-text-secondary hover:text-warning-dark' : 'hover:bg-success-light text-text-secondary hover:text-success'}`}
@@ -170,11 +158,11 @@ export default function StaffManagement() {
         </div>
       </Modal>
 
-      {/* Reset Password Modal */}
-      <Modal isOpen={resetOpen} onClose={() => setResetOpen(false)} title={`Reset Password — ${selectedStaff?.full_name}`}
-        footer={<><Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button><Button loading={saving} onClick={handleResetPassword}>Reset Password</Button></>}>
-        <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" required />
-      </Modal>
+      <EmployeePerformanceModal 
+        isOpen={performanceOpen} 
+        onClose={() => setPerformanceOpen(false)} 
+        employee={selectedStaff} 
+      />
     </div>
   );
 }

@@ -125,7 +125,8 @@ async function getQuotationById(id, userId, userRole) {
           current_batch_total: labelSnap.total_amount,
           current_total_stock: labelSnap.total_stock,
           is_new_batch: labelSnap.is_new_batch,
-          include_in_quotation: labelSnap.include_in_quotation
+          include_in_quotation: labelSnap.include_in_quotation,
+          withoutLabel: labelSnap.without_label
         };
       }
     }
@@ -303,7 +304,8 @@ async function createQuotation(quotationData, userId) {
       gst_amount: snapshot.gst,
       total_amount: snapshot.totalAmount,
       is_new_batch: labelData.isNewBatch,
-      include_in_quotation: labelData.includeInQuotation
+      include_in_quotation: labelData.includeInQuotation,
+      without_label: labelData.withoutLabel || false
     });
     
     // The frontend payload already includes the label cost in subtotal, totalGst, and grandTotal.

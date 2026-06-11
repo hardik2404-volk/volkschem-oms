@@ -72,8 +72,8 @@ function generateSupervisorOrderPDF(quotationData) {
       // 5. Label Inventory (Optional - factory needs to see label counts)
       if (quotationData.rows && quotationData.rows.length > 0) {
         const labelDataArray = [];
-        quotationData.rows.forEach(snapshotRow => {
-          if (snapshotRow.label_snapshot) {
+        quotationData.rows.forEach((snapshotRow) => {
+          if (snapshotRow.label_snapshot && !snapshotRow.label_snapshot.withoutLabel && !snapshotRow.label_snapshot.without_label) {
             const snap = snapshotRow.label_snapshot;
             // Removed isNewBatch filter to show ALL label inventory
             labelDataArray.push({

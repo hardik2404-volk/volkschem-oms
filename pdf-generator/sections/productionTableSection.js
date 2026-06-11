@@ -26,6 +26,9 @@ function generateProductionTable(doc, quotationData, startY) {
         dynamicComponents.add(comp.component_name.toUpperCase());
       }
     });
+    if (row.label_snapshot) {
+      dynamicComponents.add('LABEL');
+    }
   });
 
   const checklistItems = ['AMPOULE', 'BOTTLE', 'LABEL', 'TRAY', 'FBB BOX', 'INNER BOX', 'OUTER BOX', 'SHRIK', 'M.CAP', 'CARTOON'];
@@ -152,7 +155,10 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     rowData['sr'] = index + 1;
     rowData['product_code'] = row.products?.product_code || quotationData.products?.product_code || '-';
     
-    const prodName = row.products?.product_name || quotationData.products?.product_name || quotationData.material_name || '-';
+    let prodName = row.products?.product_name || quotationData.products?.product_name || quotationData.material_name || (quotationData.order_type === 'bulk' ? row.packing_type : null) || '-';
+    if (quotationData.order_type === 'bulk' && row.container_variant) {
+      prodName += `\nPacking: ${row.container_variant}`;
+    }
     
     // Brand Name Fix
     let brandName = '-';
@@ -193,7 +199,17 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     
     // Dynamically evaluate each component for this specific row
     compArray.forEach(comp => {
-      const isChecked = (row.components || []).some(c => c.component_name.toUpperCase() === comp && c.is_checked);
+      let isChecked = (row.components || []).some(c => c.component_name.toUpperCase() === comp && c.is_checked);
+      
+      if (comp === 'LABEL' && row.label_snapshot) {
+        if (row.label_snapshot.withoutLabel || row.label_snapshot.without_label) {
+          rowData[`chk_${comp}`] = 'NO';
+          return;
+        } else {
+          isChecked = true;
+        }
+      }
+
       if (isChecked) {
         if (isAmpoule && comp === 'INNER BOX' && spec) {
           rowData[`chk_${comp}`] = `YES (${Math.ceil(row.total_pcs / spec.innerBoxPcs)})`;
@@ -212,7 +228,7 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     rowData['total_ltr'] = totalLtrKg ? Number(totalLtrKg.toFixed(4)) : '-';
     
     // Total Cases for Pure Bulk is DRUMS/BAGS count, which is total_pcs here (e.g. 7 drums of 25kg)
-    if (quotationData.order_type === 'bulk_material') {
+    if (quotationData.order_type === 'bulk' || quotationData.order_type === 'bulk_material') {
       rowData['total_cases'] = row.total_pcs || '-';
       rowData['total_ltr'] = row.total_quantity_ltr_kg || totalLtrKg || '-';
     } else {

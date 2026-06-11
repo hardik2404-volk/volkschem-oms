@@ -301,16 +301,17 @@ export default function QuotationManagement() {
 
                     return displayRows.map((row, i) => {
                       const ld = row.label_snapshot;
-                      const labelRate = (ld && ld.is_new_batch) ? ld.rate_per_label : 0;
+                      const labelRate = (ld && ld.is_new_batch && !ld.withoutLabel) ? ld.rate_per_label : 0;
                       
                       return (
                       <React.Fragment key={i}>
                         <tr className={`border-b border-border ${i % 2 ? 'bg-surface-alt' : ''}`}>
                           <td className="px-3 py-2 text-sm">
-                            {row.products ? `${row.products.product_name} (${row.products.product_code})` : (selectedQuotation.material_name || '-')}
+                            <div className="font-medium">{row.products ? `${row.products.product_name} (${row.products.product_code})` : (row.packing_type || selectedQuotation.material_name || '-')}</div>
+                            {row.container_variant && <div className="text-xs text-text-muted mt-0.5">Packing: {row.container_variant}</div>}
                           </td>
-                          <td className="px-3 py-2 text-sm">{row.pack_size_value}{row.pack_size_unit}</td>
-                          <td className="px-3 py-2 text-sm">{row.total_pcs}</td>
+                          <td className="px-3 py-2 text-sm">{selectedQuotation.order_type === 'bulk' ? 'Bulk' : `${row.pack_size_value || ''}${row.pack_size_unit || ''}`}</td>
+                          <td className="px-3 py-2 text-sm">{selectedQuotation.order_type === 'bulk' ? `${row.total_quantity_ltr_kg || ''} ${row.pack_size_unit || ''}`.trim() : row.total_pcs}</td>
                           <td className="px-3 py-2 text-sm">{formatINR(row.bulk_rate_per_ltr_kg)}</td>
                           <td className="px-3 py-2 text-sm">{formatINR(row.cost_per_pcs)}</td>
                           <td className="px-3 py-2 text-sm">{formatINR(labelRate)}</td>
@@ -318,7 +319,16 @@ export default function QuotationManagement() {
                           <td className="px-3 py-2 text-sm">{row.gst_rate}%</td>
                           <td className="px-3 py-2 text-sm font-bold">{formatINR(row.row_total_with_gst)}</td>
                         </tr>
-                        {ld && (ld.is_new_batch || ld.include_in_quotation) && (
+                        {ld && ld.withoutLabel && (
+                          <tr className={i % 2 ? 'bg-surface-alt' : ''}>
+                            <td colSpan="9" className="px-3 py-2 border-b border-border">
+                              <div className="p-2 border border-border rounded bg-surface-alt text-text-secondary text-sm flex justify-between items-center">
+                                <div><span className="font-semibold text-text-primary">Without Label:</span> This product is ordered without a label.</div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {ld && !ld.withoutLabel && (ld.is_new_batch || ld.include_in_quotation) && (
                           <tr className={i % 2 ? 'bg-surface-alt' : ''}>
                             <td colSpan="9" className="px-3 py-2 border-b border-border">
                               <div className={`p-3 border rounded ${ld.is_new_batch ? 'border-warning bg-warning-light/10' : 'border-success bg-success-light/10'}`}>

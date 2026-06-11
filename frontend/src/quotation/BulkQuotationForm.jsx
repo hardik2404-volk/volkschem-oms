@@ -27,7 +27,7 @@ export default function BulkQuotationForm() {
   });
 
   const [rows, setRows] = useState([
-    { id: Date.now(), material: null, query: '', quantity: '', gst_rate: '18' }
+    { id: Date.now(), material: null, query: '', quantity: '', gst_rate: '18', container_variant: '' }
   ]);
 
   useEffect(() => {
@@ -69,7 +69,8 @@ export default function BulkQuotationForm() {
                     material: mat || { material_name: matName, rate_per_unit: r.bulk_rate_per_ltr_kg, unit: r.pack_size_unit },
                     query: '',
                     quantity: r.total_quantity_ltr_kg || q.quantity || '',
-                    gst_rate: r.gst_rate?.toString() || q.gst_rate?.toString() || '18'
+                    gst_rate: r.gst_rate?.toString() || q.gst_rate?.toString() || '18',
+                    container_variant: r.container_variant || ''
                   };
                 });
                 setRows(loadedRows);
@@ -80,7 +81,8 @@ export default function BulkQuotationForm() {
                   material: mat || { material_name: q.material_name, rate_per_unit: q.material_rate, unit: q.material_unit },
                   query: '',
                   quantity: q.quantity || '',
-                  gst_rate: q.gst_rate?.toString() || '18'
+                  gst_rate: q.gst_rate?.toString() || '18',
+                  container_variant: ''
                 }]);
               }
             }
@@ -104,7 +106,7 @@ export default function BulkQuotationForm() {
   };
 
   const addRow = () => {
-    setRows([...rows, { id: Date.now(), material: null, query: '', quantity: '', gst_rate: '18' }]);
+    setRows([...rows, { id: Date.now(), material: null, query: '', quantity: '', gst_rate: '18', container_variant: '' }]);
   };
 
   const removeRow = (id) => {
@@ -156,10 +158,11 @@ export default function BulkQuotationForm() {
           return {
             row_number: i + 1,
             packing_type: r.material.material_name,
+            container_variant: r.container_variant || null,
             pack_size_value: 1,
             pack_size_unit: r.material.unit,
             total_quantity_ltr_kg: qty,
-            total_pcs: qty,
+            total_pcs: 0,
             bulk_rate_per_ltr_kg: rate,
             bulk_material_cost_per_pcs: rate,
             cost_per_pcs: rate,
@@ -249,6 +252,15 @@ export default function BulkQuotationForm() {
                   <Input label="GST Rate (%)" type="number" value={row.gst_rate} onChange={(e) => updateRow(row.id, 'gst_rate', e.target.value)} />
                 </div>
               </div>
+
+              {/* Packing Row */}
+              {row.material && (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4 pt-4 border-t border-border/50">
+                  <div className="md:col-span-12">
+                    <Input label="Packing Type (e.g. 25kg Bag, Drum)" value={row.container_variant} onChange={(e) => updateRow(row.id, 'container_variant', e.target.value)} placeholder="Leave blank if none" />
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

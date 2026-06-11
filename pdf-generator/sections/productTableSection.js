@@ -179,18 +179,23 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     const technical = row.products?.technical_combination || row.product?.technical_combination || row.technical_combination || quotationData.products?.technical_combination || '';
 
     let productNameText = productName;
-    if (isFactoryView && technical) {
+    if (quotationData.order_type === 'bulk' && row.container_variant) {
+      productNameText += `\nPacking: ${row.container_variant}`;
+    } else if (isFactoryView && technical) {
       productNameText += `\n(${technical})`;
     }
     rowData['product_name'] = productNameText;
     
     rowData['hsn'] = row.products?.hsn_code || '3808';
-    rowData['pack_size'] = `${row.pack_size_value || ''} ${row.pack_size_unit || ''}`.trim();
+    rowData['pack_size'] = quotationData.order_type === 'bulk' ? 'Bulk' : `${row.pack_size_value || ''} ${row.pack_size_unit || ''}`.trim();
     
-    // Display total bulk quantity (Ltr/Kg) instead of pieces
-    const bulkQty = row.total_quantity_ltr_kg || 0;
-    const unit = (row.pack_size_unit === 'ml' || row.pack_size_unit === 'ltr') ? 'Ltr' : 'Kg';
-    rowData['total_pcs'] = `${bulkQty} ${unit}`;
+    if (quotationData.order_type === 'bulk') {
+      const bulkQty = row.total_quantity_ltr_kg || 0;
+      const unit = (row.pack_size_unit === 'ml' || row.pack_size_unit === 'ltr') ? 'Ltr' : 'Kg';
+      rowData['total_pcs'] = `${bulkQty} ${unit}`;
+    } else {
+      rowData['total_pcs'] = row.total_pcs || 0;
+    }
     
     if (!isFactoryView) {
       rowData['bulk_material_cost_per_pcs'] = row.bulk_material_cost_per_pcs || 0;

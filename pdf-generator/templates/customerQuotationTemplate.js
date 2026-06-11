@@ -73,8 +73,8 @@ function generateCustomerQuotationPDF(quotationData) {
 
       if (quotationData.rows && quotationData.rows.length > 0) {
         const labelDataArray = [];
-        quotationData.rows.forEach(snapshotRow => {
-          if (snapshotRow.label_snapshot) {
+        quotationData.rows.forEach((snapshotRow) => {
+          if (snapshotRow.label_snapshot && !snapshotRow.label_snapshot.withoutLabel && !snapshotRow.label_snapshot.without_label) {
             const snap = snapshotRow.label_snapshot;
             
             // Only show the block if it should be included

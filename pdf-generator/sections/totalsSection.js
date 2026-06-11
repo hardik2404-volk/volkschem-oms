@@ -44,8 +44,8 @@ function generateTotalsSection(doc, quotationData, startY) {
   let totalQty = 0;
   let qtyLabel = 'Total Qty';
   if (quotationData.order_type === 'bulk') {
-    totalQty = quotationData.quantity || 0;
-    qtyLabel = `Total Qty (${quotationData.material_unit === 'kg' ? 'Kg' : 'Ltr'})`;
+    totalQty = quotationData.rows?.reduce((sum, r) => sum + (r.total_quantity_ltr_kg || 0), 0) || quotationData.quantity || 0;
+    qtyLabel = `Total Qty (Ltr/Kg)`;
   } else {
     totalQty = quotationData.rows?.reduce((sum, r) => sum + (r.total_pcs || 0), 0) || 0;
     qtyLabel = 'Total Qty (Pcs)';
@@ -55,10 +55,10 @@ function generateTotalsSection(doc, quotationData, startY) {
   let labelTotal = 0;
   if (quotationData.rows) {
     quotationData.rows.forEach(r => {
-      if (r.label_snapshot) {
+      if (r.label_snapshot && !r.label_snapshot.withoutLabel && !r.label_snapshot.without_label) {
         const snap = r.label_snapshot;
         if (snap.is_new_batch) {
-          labelTotal += snap.current_batch_total;
+          labelTotal += (snap.current_batch_total || snap.total_amount || 0);
         }
       }
     });

@@ -51,7 +51,8 @@ function WizardContent() {
             const globalRowIndex = state.lineItems.length + i;
             const ld = state.labelDataArray?.[globalRowIndex];
             if (!ld) return false;
-            if (ld.isNewBatch) {
+            if (ld.withoutLabel) return true;
+            if (ld.isNewBatch || !ld.sufficient) {
               return ld.batchQuantity >= 1000 && parseFloat(ld.ratePerLabel) > 0;
             }
             return true;

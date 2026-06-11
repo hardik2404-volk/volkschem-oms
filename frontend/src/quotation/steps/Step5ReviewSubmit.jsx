@@ -24,7 +24,7 @@ function SectionCard({ title, children, action }) {
 }
 
 export default function Step5ReviewSubmit() {
-  const { state, resetWizard, resetProductState, addLineItem, removeLineItem, editLineItem, goToStep } = useQuotation();
+  const { state, resetWizard, resetProductState, addLineItem, removeLineItem, editLineItem, goToStep, goBack } = useQuotation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
@@ -56,7 +56,7 @@ export default function Step5ReviewSubmit() {
   const overallSubtotal = allItems.reduce((acc, item) => acc + (item.rows[0]?.rowAmount || 0), 0);
   const overallGst = allItems.reduce((acc, item) => acc + (item.rows[0]?.gstAmount || 0), 0);
   const overallLabels = (state.labelDataArray || []).reduce((acc, ld) => {
-    return acc + (ld?.isNewBatch ? (ld.totalLabelCost || 0) : 0);
+    return acc + ((ld?.isNewBatch && !ld?.withoutLabel) ? (ld.totalLabelCost || 0) : 0);
   }, 0);
   const grandTotal = overallSubtotal + overallGst + overallLabels;
 
@@ -212,6 +212,11 @@ export default function Step5ReviewSubmit() {
              {(() => {
                const ld = state.labelDataArray[index];
                if (!ld) return null;
+               if (ld.withoutLabel) return (
+                 <div className="mt-4 p-3 bg-surface-alt border border-border rounded-lg text-sm text-text-secondary flex justify-between items-center">
+                   <div><span className="font-semibold text-text-primary">Without Label:</span> This product will be packed and shipped without a label.</div>
+                 </div>
+               );
                if (!ld.isNewBatch && !ld.includeInQuotation) return null;
                
                return (
@@ -274,13 +279,18 @@ export default function Step5ReviewSubmit() {
 
       {/* ── Action Buttons ── */}
       {!isViewMode && (
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="secondary" icon={Save} onClick={handleSaveDraft} loading={saving}>
-            Save as Draft
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <Button variant="secondary" onClick={goBack} disabled={saving}>
+            Back
           </Button>
-          <Button variant="warning" icon={Send} onClick={handleSubmit} loading={saving}>
-            Submit to Admin
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" icon={Save} onClick={handleSaveDraft} loading={saving}>
+              Save as Draft
+            </Button>
+            <Button variant="warning" icon={Send} onClick={handleSubmit} loading={saving}>
+              Submit to Admin
+            </Button>
+          </div>
         </div>
       )}
     </div>

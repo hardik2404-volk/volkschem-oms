@@ -155,9 +155,35 @@ export default function LabelManagementBlock({ rowIndex, row }) {
         <h3 className="font-bold text-lg">Label Management</h3>
       </div>
 
-      {/* STATE A: SUFFICIENT LABELS */}
-      {sufficient && !isFirstOrder && (
-        <div className="p-5 border-2 border-success/40 bg-success-light/20 rounded-xl">
+      <div className="mb-4 bg-white p-3 border border-border rounded-lg flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-sm">Order Without Label</h4>
+          <p className="text-xs text-text-muted">Check this if the customer does not require a label for this product.</p>
+        </div>
+        <input 
+          type="checkbox" 
+          checked={labelData.withoutLabel || false}
+          onChange={(e) => {
+            updateLabelDataForRow(rowIndex, { ...labelData, withoutLabel: e.target.checked, includeInQuotation: !e.target.checked });
+            if (!e.target.checked && data) {
+               setErrorMsg(labelData.batchQuantity < 1000 ? 'Minimum 1000 labels required' : '');
+            } else {
+               setErrorMsg('');
+            }
+          }}
+          className="w-5 h-5 accent-primary cursor-pointer"
+        />
+      </div>
+
+      {labelData.withoutLabel ? (
+        <div className="p-4 bg-surface-alt border border-border rounded-xl text-text-secondary text-sm">
+          Label inventory checks and costs are bypassed. This product will be shipped without a label.
+        </div>
+      ) : (
+        <>
+          {/* STATE A: SUFFICIENT LABELS */}
+          {sufficient && !isFirstOrder && (
+            <div className="p-5 border-2 border-success/40 bg-success-light/20 rounded-xl">
           <div className="flex items-start gap-3">
             <CheckCircle2 size={24} className="text-success flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -331,6 +357,8 @@ export default function LabelManagementBlock({ rowIndex, row }) {
           </div>
         )}
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }
