@@ -64,30 +64,7 @@ async function createQuotation(req, res, next) {
       }
     }
 
-    // Label Inventory Pre-Validation
-    if (req.body.customer_id && req.body.rows) {
-      const labelService = require('../services/labelService');
-      for (const row of req.body.rows) {
-        if (row.components) {
-          const labelComp = row.components.find(c => c.component_name.toLowerCase() === 'label' && c.is_checked);
-          if (labelComp && labelComp.label_quantity > 0) {
-            const stockCheck = await labelService.checkLabelStock(
-              req.body.customer_id,
-              row.product_id || req.body.product_id,
-              row.pack_size_value + row.pack_size_unit,
-              row.total_pcs
-            );
-
-            if (stockCheck.isFirstOrder && labelComp.label_quantity < 1000) {
-              return sendError(res, 'First order requires minimum 1000 labels (MOQ).', 400);
-            }
-            if (!stockCheck.sufficient && labelComp.label_quantity < 1000) {
-              return sendError(res, 'Insufficient labels and new batch must be minimum 1000.', 400);
-            }
-          }
-        }
-      }
-    }
+    // PM validation is already handled by frontend and service.
 
     const data = await quotationService.createQuotation(req.body, req.user.id);
     return sendSuccess(res, data, 'Quotation created.', 201);

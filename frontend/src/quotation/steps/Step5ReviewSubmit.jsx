@@ -45,7 +45,7 @@ export default function Step5ReviewSubmit() {
         packSizeUnit: state.packSizeUnit,
         rows: state.rows,
         components: state.components,
-        labelData: state.labelData,
+        pmData: state.pmData,
         isActive: true,
         lineItemIndex: -1,
       });
@@ -53,12 +53,14 @@ export default function Step5ReviewSubmit() {
     return items;
   }, [state]);
 
+  const totalPcsOverall = allItems.reduce((acc, item) => acc + (parseInt(item.rows[0]?.totalPcs) || 0), 0);
   const overallSubtotal = allItems.reduce((acc, item) => acc + (item.rows[0]?.rowAmount || 0), 0);
   const overallGst = allItems.reduce((acc, item) => acc + (item.rows[0]?.gstAmount || 0), 0);
-  const overallLabels = (state.labelDataArray || []).reduce((acc, ld) => {
-    return acc + ((ld?.isNewBatch && !ld?.withoutLabel) ? (ld.totalLabelCost || 0) : 0);
+  const productTotal = overallSubtotal + overallGst;
+  const overallPMs = (state.pmDataArray || []).reduce((acc, ld) => {
+    return acc + ((ld?.isNewBatch && !ld?.withoutPM) ? (ld.totalPMCost || 0) : 0);
   }, 0);
-  const grandTotal = overallSubtotal + overallGst + overallLabels;
+  const grandTotal = productTotal + overallPMs;
 
   const buildPayload = (status) => ({
     order_type: 'product',
@@ -93,7 +95,7 @@ export default function Step5ReviewSubmit() {
     subtotal: overallSubtotal,
     total_gst: overallGst,
     grand_total: grandTotal,
-    labelDataArray: state.labelDataArray || [],
+    pmDataArray: state.pmDataArray || [],
   });
 
   const handleSaveDraft = async () => {
@@ -210,20 +212,25 @@ export default function Step5ReviewSubmit() {
              </div>
              
              {(() => {
-               const ld = state.labelDataArray[index];
+               const ld = state.pmDataArray[index];
                if (!ld) return null;
-               if (ld.withoutLabel) return (
-                 <div className="mt-4 p-3 bg-surface-alt border border-border rounded-lg text-sm text-text-secondary flex justify-between items-center">
-                   <div><span className="font-semibold text-text-primary">Without Label:</span> This product will be packed and shipped without a label.</div>
-                 </div>
-               );
+               if (ld.withoutPM) {
+                 const isNoPrint = ['Pouch', 'Bucket'].includes(item.packingType);
+                 const title = isNoPrint ? 'Without Printing:' : 'Without Label:';
+                 const message = isNoPrint ? 'This product will be packed and shipped without printing.' : 'This product will be packed and shipped without a label.';
+                 return (
+                   <div className="mt-4 p-3 bg-surface-alt border border-border rounded-lg text-sm text-text-secondary flex justify-between items-center">
+                     <div><span className="font-semibold text-text-primary">{title}</span> {message}</div>
+                   </div>
+                 );
+               }
                if (!ld.isNewBatch && !ld.includeInQuotation) return null;
                
                return (
                  <div className={`mt-4 p-4 border rounded-lg ${ld.isNewBatch ? 'border-warning bg-warning-light/10' : 'border-success bg-success-light/10'}`}>
                    <div className="flex justify-between items-center mb-2">
-                     <h4 className="font-semibold text-sm">{ld.isNewBatch ? 'New Label Batch Required' : 'Label Inventory Status'}</h4>
-                     {ld.isNewBatch && <span className="font-bold text-primary">+ {formatINR(ld.totalLabelCost)}</span>}
+                     <h4 className="font-semibold text-sm">{ld.isNewBatch ? 'New Packing Material Batch Required' : 'Packing Material Inventory Status'}</h4>
+                     {ld.isNewBatch && <span className="font-bold text-primary">+ {formatINR(ld.totalPMCost)}</span>}
                    </div>
                    <table className="w-full text-xs text-left">
                      <thead>
@@ -241,7 +248,7 @@ export default function Step5ReviewSubmit() {
                          <td className="py-1 text-right">{ld.isNewBatch ? ld.batchQuantity?.toLocaleString() : '0'}</td>
                          <td className="py-1 text-right text-error">{ld.usedPcs?.toLocaleString()}</td>
                          <td className="py-1 text-right font-medium">{ld.closingStockAfter?.toLocaleString()}</td>
-                         {ld.isNewBatch && <td className="py-1 text-right">₹{ld.ratePerLabel}</td>}
+                         {ld.isNewBatch && <td className="py-1 text-right">₹{ld.ratePerPM}</td>}
                        </tr>
                      </tbody>
                    </table>
@@ -256,17 +263,17 @@ export default function Step5ReviewSubmit() {
       <div className="flex justify-end mb-6">
         <div className="w-80 bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-text-secondary">Subtotal:</span>
-            <span className="font-semibold">{formatINR(overallSubtotal)}</span>
+            <span className="text-text-secondary">Total Qty (Pcs):</span>
+            <span className="font-semibold">{totalPcsOverall.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-text-secondary">Total GST:</span>
-            <span className="font-semibold">{formatINR(overallGst)}</span>
+            <span className="text-text-secondary">Product Total:</span>
+            <span className="font-semibold">{formatINR(productTotal)}</span>
           </div>
-          {overallLabels > 0 && (
+          {overallPMs > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-text-secondary">Labels Total:</span>
-              <span className="font-semibold">{formatINR(overallLabels)}</span>
+              <span className="text-text-secondary">Packing Material Total:</span>
+              <span className="font-semibold">{formatINR(overallPMs)}</span>
             </div>
           )}
           <hr className="border-primary/20" />

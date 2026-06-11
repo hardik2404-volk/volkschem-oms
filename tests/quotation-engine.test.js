@@ -387,7 +387,7 @@ describe('validateQuotation', () => {
       product_id: null,
     });
     expect(result.isValid).toBe(false);
-    expect(result.errors).toContain('Product ID is required for product quotations.');
+    expect(result.errors).toContain('Product Code is required for product quotations.');
   });
 
   test('null quotation should fail', () => {

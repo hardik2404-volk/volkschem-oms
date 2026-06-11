@@ -47,7 +47,7 @@ const initialState = {
   
   // Multi-product support
   lineItems: [], // Array of { product, packingType, packingVariant, packSize, packSizeValue, packSizeUnit, rows, components }
-  labelDataArray: [],    // global array of label management objects (one entry per global row across all products)
+  pmDataArray: [],    // global array of label management objects (one entry per global row across all products)
 };
 
 export function QuotationProvider({ children }) {
@@ -137,23 +137,23 @@ export function QuotationProvider({ children }) {
     });
   }, []);
 
-  const updateLabelDataForRow = useCallback((rowIndex, labelData) => {
+  const updatePMDataForRow = useCallback((rowIndex, labelData) => {
     setState((prev) => {
-      const updatedArray = [...prev.labelDataArray];
+      const updatedArray = [...prev.pmDataArray];
       updatedArray[rowIndex] = labelData;
-      return { ...prev, labelDataArray: updatedArray };
+      return { ...prev, pmDataArray: updatedArray };
     });
   }, []);
 
-  const getLabelDataForRow = useCallback((rowIndex) => {
-    return state.labelDataArray[rowIndex] || null;
-  }, [state.labelDataArray]);
+  const getPMDataForRow = useCallback((rowIndex) => {
+    return state.pmDataArray[rowIndex] || null;
+  }, [state.pmDataArray]);
 
   const removeLineItem = useCallback((index) => {
     setState((prev) => {
       const lineItems = prev.lineItems.filter((_, i) => i !== index);
-      const labelDataArray = prev.labelDataArray.filter((_, i) => i !== index);
-      return recalcTotals({ ...prev, lineItems, labelDataArray });
+      const pmDataArray = prev.pmDataArray.filter((_, i) => i !== index);
+      return recalcTotals({ ...prev, lineItems, pmDataArray });
     });
   }, []);
 
@@ -163,7 +163,7 @@ export function QuotationProvider({ children }) {
       if (!itemToEdit) return prev;
 
       const lineItems = prev.lineItems.filter((_, i) => i !== index);
-      const labelDataArray = prev.labelDataArray.filter((_, i) => i !== index);
+      const pmDataArray = prev.pmDataArray.filter((_, i) => i !== index);
       
       // Load the item's label data into the current active state if needed,
       // but actually the active state's label gets recalculated in Step 4.
@@ -183,7 +183,7 @@ export function QuotationProvider({ children }) {
         components: itemToEdit.components,
         labelBatch: itemToEdit.labelBatch,
         lineItems,
-        labelDataArray,
+        pmDataArray,
       });
     });
   }, []);
@@ -196,21 +196,22 @@ export function QuotationProvider({ children }) {
 
       // Multi-product mapping
       let lineItems = [];
-      let labelDataArray = [];
+      let pmDataArray = [];
       if (q.rows && q.rows.length > 0) {
         lineItems = q.rows.map((r, index) => {
-          if (r.label_snapshot) {
-            labelDataArray[index] = {
-              isNewBatch: r.label_snapshot.is_new_batch,
-              includeInQuotation: r.label_snapshot.include_in_quotation,
-              packSize: r.label_snapshot.pack_size,
-              openStock: r.label_snapshot.open_stock,
-              batchQuantity: r.label_snapshot.make_quantity,
-              totalStock: r.label_snapshot.total_stock,
-              usedPcs: r.label_snapshot.used_to_date,
-              closingStockAfter: r.label_snapshot.closing_stock,
-              ratePerLabel: r.label_snapshot.rate_per_label,
-              totalLabelCost: r.label_snapshot.total_amount,
+          const snap = r.pm_snapshot || r.label_snapshot;
+          if (snap) {
+            pmDataArray[index] = {
+              isNewBatch: snap.is_new_batch,
+              includeInQuotation: snap.include_in_quotation,
+              packSize: snap.pack_size,
+              openStock: snap.open_stock,
+              batchQuantity: snap.make_quantity,
+              totalStock: snap.total_stock,
+              usedPcs: snap.used_to_date,
+              closingStockAfter: snap.closing_stock,
+              ratePerPM: snap.rate_per_pm || snap.rate_per_label,
+              totalPMCost: snap.total_amount,
             };
           }
 
@@ -262,7 +263,7 @@ export function QuotationProvider({ children }) {
           quotation_date: q.quotation_date || new Date().toISOString().split('T')[0],
         },
         lineItems,
-        labelDataArray,
+        pmDataArray,
       });
       return true;
     } catch (err) {
@@ -292,8 +293,8 @@ export function QuotationProvider({ children }) {
       addLineItem,
       removeLineItem,
       editLineItem,
-      updateLabelDataForRow,
-      getLabelDataForRow,
+      updatePMDataForRow,
+      getPMDataForRow,
       loadQuotation,
       goNext,
       goBack,

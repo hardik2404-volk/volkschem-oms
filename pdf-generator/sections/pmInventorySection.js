@@ -1,5 +1,5 @@
 // ============================================================================
-// VOLKSCHEM OMS — PDF Label Inventory Section
+// VOLKSCHEM OMS — PDF PM Inventory Section
 // ============================================================================
 
 const { formatCurrency } = require('./productTableSection'); // Reusing currency formatter if exported.
@@ -14,19 +14,19 @@ function formatLocalCurrency(amount) {
 }
 
 /**
- * Generate the Label Inventory Details block.
+ * Generate the PM Inventory Details block.
  * Rendered only when a label component is checked.
  *
  * @param {PDFDocument} doc
  * @param {Array|Object} labelDataInput - Aggregated label section info (array or single object)
  * @param {number} startY
  */
-function generateLabelInventorySection(doc, labelDataInput, startY, isFactoryView = false) {
+function generatePMInventorySection(doc, labelDataInput, startY, isFactoryView = false) {
   if (!labelDataInput) return startY; // skip if no data
   
   // Normalize to array
-  const labelDataArray = Array.isArray(labelDataInput) ? labelDataInput : [labelDataInput];
-  if (labelDataArray.length === 0) return startY;
+  const pmDataArray = Array.isArray(labelDataInput) ? labelDataInput : [labelDataInput];
+  if (pmDataArray.length === 0) return startY;
 
   const margin = 20;
   const pageWidth = doc.page.width - (margin * 2);
@@ -37,7 +37,7 @@ function generateLabelInventorySection(doc, labelDataInput, startY, isFactoryVie
     .font('NotoSans-Bold')
     .fontSize(10)
     .fillColor('#333333')
-    .text('Packing Materials Stock Inventory Payment', margin, currentY);
+    .text('Packing Materials Stock Inventory', margin, currentY);
 
   currentY += 15;
 
@@ -91,7 +91,7 @@ function generateLabelInventorySection(doc, labelDataInput, startY, isFactoryVie
   let totalPayableAmount = 0;
   let hasNewBatch = false;
 
-  labelDataArray.forEach((labelData, i) => {
+  pmDataArray.forEach((labelData, i) => {
     // Add page if needed
     if (currentY > doc.page.height - 100) {
        // Optional: close grid and draw new page, but assuming it fits for now.
@@ -159,4 +159,4 @@ function generateLabelInventorySection(doc, labelDataInput, startY, isFactoryVie
   return currentY + 10;
 }
 
-module.exports = { generateLabelInventorySection };
+module.exports = { generatePMInventorySection };

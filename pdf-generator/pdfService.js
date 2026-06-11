@@ -10,7 +10,7 @@ const PDFDocument = require('pdfkit');
 const { generateHeader } = require('./sections/headerSection');
 const { generateCustomerSection } = require('./sections/customerSection');
 const { generateProductTable } = require('./sections/productTableSection');
-const { generateLabelInventorySection } = require('./sections/labelInventorySection');
+const { generatePMInventorySection } = require('./sections/pmInventorySection');
 const { generateTotalsSection } = require('./sections/totalsSection');
 const { generateTermsSection } = require('./sections/termsSection');
 
@@ -60,7 +60,7 @@ async function generateDraftPDF(quotationId, quotationData) {
       currentY = generateProductTable(doc, quotationData, currentY, false);
       
       if (quotationData.label_inventory) {
-        currentY = generateLabelInventorySection(doc, quotationData.label_inventory, currentY);
+        currentY = generatePMInventorySection(doc, quotationData.label_inventory, currentY);
       }
 
       if (currentY > doc.page.height - 150) {

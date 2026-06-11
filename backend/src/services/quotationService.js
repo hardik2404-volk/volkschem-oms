@@ -97,41 +97,41 @@ async function getQuotationById(id, userId, userRole) {
       .eq('row_id', row.id)
       .order('sort_order');
 
-    let labelData = null;
+    let pmData = null;
     if (row.product_id && row.packing_type) {
-      const { data: labelSnap } = await supabase
-        .from('label_quotation_snapshots')
+      const { data: pmSnap } = await supabase
+        .from('pm_quotation_snapshots')
         .select('*')
         .eq('quotation_id', id)
         .eq('product_id', row.product_id)
         .eq('pack_size', row.pack_size_value + row.pack_size_unit)
         .maybeSingle();
-      if (labelSnap) {
+      if (pmSnap) {
         // Map snapshot fields to the legacy structure so PDF generation works without rewriting everything
-        labelData = {
-          brand_name: labelSnap.brand_name,
-          pack_type: labelSnap.pack_type,
-          pack_size: labelSnap.pack_size,
-          open_stock: labelSnap.open_stock,
-          make_quantity: labelSnap.make_quantity,
-          total_stock: labelSnap.total_stock,
-          used_to_date: labelSnap.used_pcs,
-          closing_stock: labelSnap.closing_stock_after,
-          rate_per_label: labelSnap.rate_per_label,
-          total_amount: labelSnap.total_amount,
-          gst_amount: labelSnap.gst_amount,
-          current_batch_amount: labelSnap.amount,
-          current_batch_gst: labelSnap.gst_amount,
-          current_batch_total: labelSnap.total_amount,
-          current_total_stock: labelSnap.total_stock,
-          is_new_batch: labelSnap.is_new_batch,
-          include_in_quotation: labelSnap.include_in_quotation,
-          withoutLabel: labelSnap.without_label
+        pmData = {
+          brand_name: pmSnap.brand_name,
+          pack_type: pmSnap.pack_type,
+          pack_size: pmSnap.pack_size,
+          open_stock: pmSnap.open_stock,
+          make_quantity: pmSnap.make_quantity,
+          total_stock: pmSnap.total_stock,
+          used_to_date: pmSnap.used_pcs,
+          closing_stock: pmSnap.closing_stock_after,
+          rate_per_pm: pmSnap.rate_per_pm,
+          total_amount: pmSnap.total_amount,
+          gst_amount: pmSnap.gst_amount,
+          current_batch_amount: pmSnap.amount,
+          current_batch_gst: pmSnap.gst_amount,
+          current_batch_total: pmSnap.total_amount,
+          current_total_stock: pmSnap.total_stock,
+          is_new_batch: pmSnap.is_new_batch,
+          include_in_quotation: pmSnap.include_in_quotation,
+          withoutPM: pmSnap.without_label
         };
       }
     }
 
-    rowsWithComponents.push({ ...row, components: components || [], label_snapshot: labelData });
+    rowsWithComponents.push({ ...row, components: components || [], pm_snapshot: pmData });
   }
 
   return { ...quotation, rows: rowsWithComponents };
@@ -147,13 +147,12 @@ async function createQuotation(quotationData, userId) {
   if (quotationData.save_to_directory && !finalCustomerId) {
     const { data: newCust, error: custErr } = await supabase.from('customers').insert({
       customer_name: quotationData.customer_name,
+      company_name: quotationData.billing_name || null,
       contact_number: quotationData.customer_contact || null,
       gst_pan: quotationData.gst_pan || null,
       billing_address: quotationData.billing_address || null,
-      billing_name: quotationData.billing_name || null,
       transport_name: quotationData.transport_name || null,
       destination: quotationData.destination || null,
-      label_company_name: quotationData.label_company_name || null,
       created_by: userId
     }).select('id').single();
     if (custErr) console.error('Failed to save customer:', custErr);
@@ -173,6 +172,7 @@ async function createQuotation(quotationData, userId) {
       product_id: quotationData.product_id || null,
       employee_name: quotationData.employee_name || null,
       customer_name: quotationData.customer_name,
+      company_name: quotationData.billing_name || null,
       customer_contact: quotationData.customer_contact || null,
       gst_pan: quotationData.gst_pan || null,
       billing_address: quotationData.billing_address || null,
@@ -235,7 +235,6 @@ async function createQuotation(quotationData, userId) {
           default_rate: c.default_rate || null,
           applied_rate: c.applied_rate,
           cost_per_pcs: c.cost_per_pcs,
-          label_quantity: c.label_quantity || null,
           sort_order: c.sort_order || idx + 1,
         }));
 
@@ -250,63 +249,68 @@ async function createQuotation(quotationData, userId) {
 
   // --- LABEL INVENTORY INTEGRATION ---
 
-  const labelService = require('./labelService');
+  const pmService = require('./pmService');
 
-  for (const labelData of quotationData.labelDataArray || []) {
-    if (!labelData.customerId || !labelData.productId) continue;
+  for (const pmData of quotationData.pmDataArray || []) {
+    if (!pmData.customerId || !pmData.productId) continue;
     
     let snapshot;
     
-    if (labelData.isNewBatch) {
+    if (pmData.isNewBatch) {
       // Calculate snapshot without mutating DB
-      snapshot = await labelService.calculateLabelSnapshot({
-        customerId: labelData.customerId,
-        productId: labelData.productId,
-        packSize: labelData.packSize,
-        packType: labelData.packType,
-        brandName: labelData.brandName,
-        batchQuantity: labelData.batchQuantity,
-        ratePerLabel: labelData.ratePerLabel,
-        usedPcs: labelData.usedPcs
+      snapshot = await pmService.calculatePMSnapshot({
+        customerId: pmData.customerId,
+        productId: pmData.productId,
+        packSize: pmData.packSize,
+        packType: pmData.packType,
+        brandName: pmData.brandName,
+        batchQuantity: pmData.batchQuantity,
+        ratePerPM: pmData.ratePerPM,
+        usedPcs: pmData.usedPcs
       });
     } else {
       // No new batch — just get current stock for snapshot
-      const stockInfo = await labelService.checkLabelStock(
-        labelData.customerId, labelData.productId, 
-        labelData.packSize, labelData.usedPcs
+      const stockInfo = await pmService.checkPMStock(
+        pmData.customerId, pmData.productId, 
+        pmData.packSize, pmData.usedPcs
       );
       snapshot = {
         openStock: stockInfo.currentStock,
         make: 0,
         totalStock: stockInfo.currentStock,
-        used: labelData.usedPcs,
-        closingStock: stockInfo.currentStock - labelData.usedPcs,
+        used: pmData.usedPcs,
+        closingStock: stockInfo.currentStock - pmData.usedPcs,
         rate: 0, amount: 0, gst: 0, totalAmount: 0
       };
     }
     
     // Save snapshot for PDF generation
-    await supabase.from('label_quotation_snapshots').insert({
+    const { error: snapError } = await supabase.from('pm_quotation_snapshots').insert({
       quotation_id: quotation.id,
-      row_index: labelData.rowIndex,
-      customer_id: labelData.customerId,
-      product_id: labelData.productId,
-      pack_size: labelData.packSize,
-      pack_type: labelData.packType,
-      brand_name: labelData.brandName,
+      row_index: pmData.rowIndex,
+      customer_id: pmData.customerId,
+      product_id: pmData.productId,
+      pack_size: pmData.packSize,
+      pack_type: pmData.packType,
+      brand_name: pmData.brandName,
       open_stock: snapshot.openStock,
       make_quantity: snapshot.make,
       total_stock: snapshot.totalStock,
       used_pcs: snapshot.used,
       closing_stock_after: snapshot.closingStock,
-      rate_per_label: snapshot.rate,
+      rate_per_pm: snapshot.rate,
       amount: snapshot.amount,
       gst_amount: snapshot.gst,
       total_amount: snapshot.totalAmount,
-      is_new_batch: labelData.isNewBatch,
-      include_in_quotation: labelData.includeInQuotation,
-      without_label: labelData.withoutLabel || false
+      is_new_batch: pmData.isNewBatch,
+      include_in_quotation: pmData.includeInQuotation,
+      without_label: pmData.withoutPM || false
     });
+
+    if (snapError) {
+      console.error('Failed to save PM snapshot:', snapError);
+      throw Object.assign(new Error(`Failed to save PM snapshot: ${snapError.message}`), { statusCode: 500 });
+    }
     
     // The frontend payload already includes the label cost in subtotal, totalGst, and grandTotal.
     // We do NOT add it again to prevent double counting.
@@ -358,13 +362,12 @@ async function updateQuotation(id, updates, userId, userRole) {
   if (updates.save_to_directory && !finalCustomerId) {
     const { data: newCust, error: custErr } = await supabase.from('customers').insert({
       customer_name: updates.customer_name || existing.customer_name,
+      company_name: updates.billing_name || existing.billing_name || null,
       contact_number: updates.customer_contact || existing.customer_contact || null,
       gst_pan: updates.gst_pan || existing.gst_pan || null,
       billing_address: updates.billing_address || existing.billing_address || null,
-      billing_name: updates.billing_name || existing.billing_name || null,
       transport_name: updates.transport_name || existing.transport_name || null,
       destination: updates.destination || existing.destination || null,
-      label_company_name: updates.label_company_name || existing.label_company_name || null,
       created_by: userId
     }).select('id').single();
     if (!custErr) finalCustomerId = newCust.id;
@@ -434,7 +437,6 @@ async function updateQuotation(id, updates, userId, userRole) {
           default_rate: c.default_rate || null,
           applied_rate: c.applied_rate,
           cost_per_pcs: c.cost_per_pcs,
-          label_quantity: c.label_quantity || null,
           sort_order: c.sort_order || idx + 1,
         }));
 
@@ -442,25 +444,25 @@ async function updateQuotation(id, updates, userId, userRole) {
       }
 
       // --- LABEL INVENTORY INTEGRATION ---
-      if (finalCustomerId && rowData.labelData) {
-        const ld = rowData.labelData;
+      if (finalCustomerId && rowData.pmData) {
+        const ld = rowData.pmData;
         if (ld.isNewBatch || ld.includeInQuotation) {
-          const labelService = require('./labelService');
+          const pmService = require('./pmService');
           let snapshot;
 
           if (ld.isNewBatch) {
-            snapshot = await labelService.calculateLabelSnapshot({
+            snapshot = await pmService.calculatePMSnapshot({
               customerId: finalCustomerId,
               productId: rowData.product_id || updates.product_id,
               packSize: rowData.pack_size_value + rowData.pack_size_unit,
               packType: rowData.packing_type,
               brandName: ld.brandName || updates.brand_name || updates.name_on_label || '-',
               batchQuantity: ld.batchQuantity,
-              ratePerLabel: ld.ratePerLabel,
+              ratePerPM: ld.ratePerPM || ld.ratePerLabel,
               usedPcs: rowData.total_pcs
             });
           } else {
-            const stockInfo = await labelService.checkLabelStock(
+            const stockInfo = await pmService.checkPMStock(
               finalCustomerId, rowData.product_id || updates.product_id,
               rowData.pack_size_value + rowData.pack_size_unit, rowData.total_pcs
             );
@@ -474,9 +476,9 @@ async function updateQuotation(id, updates, userId, userRole) {
             };
           }
 
-          await supabase.from('label_quotation_snapshots').insert({
+          const { error: snapError } = await supabase.from('pm_quotation_snapshots').insert({
             quotation_id: id,
-            row_index: updates.rows.indexOf(rowData),
+            row_index: ld.rowIndex || updates.rows.indexOf(rowData),
             customer_id: finalCustomerId,
             product_id: rowData.product_id || updates.product_id,
             pack_size: rowData.pack_size_value + rowData.pack_size_unit,
@@ -487,13 +489,19 @@ async function updateQuotation(id, updates, userId, userRole) {
             total_stock: snapshot.totalStock,
             used_pcs: snapshot.used,
             closing_stock_after: snapshot.closingStock,
-            rate_per_label: snapshot.rate,
+            rate_per_pm: snapshot.rate,
             amount: snapshot.amount,
             gst_amount: snapshot.gst,
             total_amount: snapshot.totalAmount,
             is_new_batch: ld.isNewBatch || false,
-            include_in_quotation: ld.includeInQuotation || false
+            include_in_quotation: ld.includeInQuotation || false,
+            without_label: ld.withoutPM || false
           });
+
+          if (snapError) {
+            console.error('Failed to update PM snapshot:', snapError);
+            throw Object.assign(new Error(`Failed to update PM snapshot: ${snapError.message}`), { statusCode: 500 });
+          }
         }
       }
     }
@@ -571,23 +579,23 @@ async function approveQuotation(id, adminNote, adminUserId) {
   if (orderError) throw orderError;
 
   // --- APPLY LABEL INVENTORY MUTATIONS ---
-  const { data: snapshots } = await supabase.from('label_quotation_snapshots').select('*').eq('quotation_id', id);
+  const { data: snapshots } = await supabase.from('pm_quotation_snapshots').select('*').eq('quotation_id', id);
   if (snapshots && snapshots.length > 0) {
-    const labelService = require('./labelService');
+    const pmService = require('./pmService');
     for (const snap of snapshots) {
       if (snap.is_new_batch) {
-        await labelService.createOrUpdateLabelInventory({
+        await pmService.createOrUpdatePMInventory({
           customerId: snap.customer_id,
           productId: snap.product_id,
           packSize: snap.pack_size,
           packType: snap.pack_type,
           brandName: snap.brand_name,
           batchQuantity: snap.make_quantity,
-          ratePerLabel: snap.rate_per_label,
+          ratePerPM: snap.rate_per_pm,
           usedPcs: snap.used_pcs
         });
       } else {
-        await labelService.deductLabelStock(
+        await pmService.deductPMStock(
           snap.customer_id,
           snap.product_id,
           snap.pack_size,

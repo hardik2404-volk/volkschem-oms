@@ -65,6 +65,7 @@ export default function AppRoutes() {
           <Route index element={<Navigate to="/employee/my-orders" replace />} />
           <Route path="my-orders" element={<MyOrders />} />
           <Route path="bulk-price" element={<BulkPriceSearch />} />
+          <Route path="cost-sheet" element={<CostSheetManager />} />
           <Route path="create-quotation" element={<ProductQuotationWizard />} />
           <Route path="create-bulk" element={<BulkQuotationForm />} />
           <Route path="customers" element={<CustomerDirectory />} />

@@ -11,6 +11,7 @@ const employeeMenu = [
   { icon: FileText,         label: 'My Orders',        path: '/employee/my-orders' },
   { icon: Plus,             label: 'Create Bulk Quotation', path: '/employee/create-bulk' },
   { icon: Search,           label: 'Search Bulk Price', path: '/employee/bulk-price' },
+  { icon: FileText,         label: 'Cost Sheet',        path: '/employee/cost-sheet' },
   { icon: Users,            label: 'Customer Directory',path: '/employee/customers' },
 ];
 

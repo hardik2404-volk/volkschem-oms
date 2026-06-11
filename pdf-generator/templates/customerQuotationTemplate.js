@@ -6,7 +6,7 @@ const PDFDocument = require('pdfkit');
 const { generateHeader } = require('../sections/headerSection');
 const { generateCustomerSection } = require('../sections/customerSection');
 const { generateProductTable } = require('../sections/productTableSection');
-const { generateLabelInventorySection } = require('../sections/labelInventorySection');
+const { generatePMInventorySection } = require('../sections/pmInventorySection');
 const { generateTotalsSection } = require('../sections/totalsSection');
 const { generateTermsSection } = require('../sections/termsSection');
 
@@ -72,17 +72,17 @@ function generateCustomerQuotationPDF(quotationData) {
       currentY = generateProductTable(doc, quotationData, currentY, false);
 
       if (quotationData.rows && quotationData.rows.length > 0) {
-        const labelDataArray = [];
+        const pmDataArray = [];
         quotationData.rows.forEach((snapshotRow) => {
-          if (snapshotRow.label_snapshot && !snapshotRow.label_snapshot.withoutLabel && !snapshotRow.label_snapshot.without_label) {
-            const snap = snapshotRow.label_snapshot;
+          if (snapshotRow.pm_snapshot && !snapshotRow.pm_snapshot.withoutPM && !snapshotRow.pm_snapshot.without_pm) {
+            const snap = snapshotRow.pm_snapshot;
             
             // Only show the block if it should be included
             if (!snap.include_in_quotation && !snap.is_new_batch) return;
 
             const isNewBatch = snap.is_new_batch;
             
-            labelDataArray.push({
+            pmDataArray.push({
               product_name: snapshotRow.products?.product_name || '-',
               pack_type: snap.pack_type,
               pack_size: snap.pack_size,
@@ -91,7 +91,7 @@ function generateCustomerQuotationPDF(quotationData) {
               total_stock: snap.total_stock, 
               used: snap.used_to_date,
               closing_stock: snap.closing_stock,
-              rate: isNewBatch ? snap.rate_per_label : 0,
+              rate: isNewBatch ? snap.rate_per_pm : 0,
               amount: isNewBatch ? snap.current_batch_amount : 0,
               gst: isNewBatch ? snap.current_batch_gst : 0,
               total_with_gst: isNewBatch ? snap.current_batch_total : 0,
@@ -100,8 +100,8 @@ function generateCustomerQuotationPDF(quotationData) {
           }
         });
         
-        if (labelDataArray.length > 0) {
-          currentY = generateLabelInventorySection(doc, labelDataArray, currentY, false);
+        if (pmDataArray.length > 0) {
+          currentY = generatePMInventorySection(doc, pmDataArray, currentY, false);
         }
       }
 

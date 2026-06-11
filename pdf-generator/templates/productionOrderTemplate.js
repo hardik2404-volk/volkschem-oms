@@ -37,10 +37,10 @@ function generateProductionOrderPDF(quotationData) {
       let currentY = 0;
 
       // 1. Header
-      currentY = generateHeader(doc, quotationData);
+      currentY = generateHeader(doc, quotationData, 'Production Sheet');
 
-      // 2. Customer Section (Title 'PRODUCTION ORDER')
-      currentY = generateCustomerSection(doc, quotationData, currentY, 'PRODUCTION ORDER');
+      // 2. Customer Section (No second title)
+      currentY = generateCustomerSection(doc, quotationData, currentY, null);
 
       // 3. Dynamic Production Table
       currentY = generateProductionTable(doc, quotationData, currentY);

@@ -61,10 +61,10 @@ export const orderService = {
   delete: (id) => api.delete(`/orders/${id}`),
 };
 
-export const labelService = {
-  getByProduct: (productId) => api.get(`/labels/${productId}`),
-  checkAvailability: (items) => api.post('/labels/check', { items }),
-  addBatch: (data) => api.post('/labels/batch', data),
+export const pmService = {
+  getPMStock: (customerId, productId, packSize) => api.get(`/pm/inventory/${customerId}/${productId}/${packSize}`),
+  addBatch: (data) => api.post('/pm/inventory', data),
+  getCustomerPMInventory: (customerId) => api.get(`/pm/customer/${customerId}`),
 };
 
 export const bulkPriceService = {

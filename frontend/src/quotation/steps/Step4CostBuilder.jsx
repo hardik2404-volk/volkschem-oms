@@ -8,16 +8,15 @@ import api from '../../services/api';
 import { AMPOULE_PACKAGING } from '../../utils/constants';
 
 const COMPONENT_MAP = {
-  Bottle:      ['Bulk Material', 'Bottle', 'Shrink Cap', 'Carton Box', 'Job Work'],
+  Bottle:      ['Bulk Material', 'Bottle', 'Measuring Cap', 'Shrink Cap', 'Carton Box', 'Job Work'],
   Ampoule:     ['Bulk Material', 'Ampoule Glass', 'Tray', 'FBB Box', 'Inner Box', 'Outer Box', 'Job Work'],
-  Pouch:       ['Bulk Material', 'Pouch', 'Carton Box', 'Job Work'],
+  Pouch:       ['Bulk Material', 'Carton Box', 'Job Work'],
   'Jar/Dabba': ['Bulk Material', 'Jar/Dabba', 'Carton Box', 'Job Work'],
-  Bucket:      ['Bulk Material', 'Bucket', 'Job Work'],
+  Bucket:      ['Bulk Material', 'Job Work'],
   Drum:        ['Bulk Material', 'Drum', 'Job Work'],
 };
 
 const SMALL_BOTTLE_SIZES = ['1ml', '2ml', '5ml', '10ml', '25ml'];
-const NO_LABEL_TYPES = ['Bucket', 'Drum', 'Pouch'];
 
 const NO_DIVISION = new Set([
   'Bulk Material', 'Ampoule Glass', 'Shrink Cap',
@@ -71,7 +70,7 @@ export default function Step4CostBuilder() {
 
   let allowedComponents = COMPONENT_MAP[packingType] || [];
   if (packingType === 'Bottle' && SMALL_BOTTLE_SIZES.includes(packSize)) {
-    allowedComponents = allowedComponents.filter((c) => c !== 'Shrink Cap');
+    allowedComponents = allowedComponents.filter((c) => c !== 'Shrink Cap' && c !== 'Measuring Cap');
   }
 
   useEffect(() => {
@@ -94,15 +93,36 @@ export default function Step4CostBuilder() {
   }, []);
 
   useEffect(() => {
+    const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
+    const isSizeMatch = (dbSize, reqSize) => {
+      const normDb = norm(dbSize);
+      const normReq = norm(reqSize);
+      if (normDb === normReq) return true;
+      if (normDb.replace(/nos/g, '') === normReq) return true; // handle '15mlnos'
+
+      const reqMatch = reqSize.toLowerCase().match(/([\d.]+)\s*([a-z]+)/);
+      if (!reqMatch) return normDb.includes(normReq);
+
+      const reqNum = reqMatch[1];
+      const reqU = reqMatch[2];
+      const regex = new RegExp(`(^|[^\\d.])${reqNum}\\s*(/\\s*\\d+\\s*)?${reqU}`, 'i'); // handles 10/15 ML and 10 ML
+      
+      // Also check if dbSize has shared unit at the end, e.g. "10/15 ML" -> we should match "15 ML"
+      const regexSharedUnit = new RegExp(`(^|[^\\d.])${reqNum}\\s*([/\\-a-z\\s]*)\\s*${reqU}`, 'i');
+      return regexSharedUnit.test(dbSize);
+    };
+
     const findRate = (catKey, variant, size) => {
       const items = fetchedRates[`_cat_${catKey}`] || [];
-      const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
-      const nSize = norm(size);
-      const exact = items.find((i) => (!variant || i.item_name?.toLowerCase().includes(variant.toLowerCase()) || i.component_name?.toLowerCase().includes(variant.toLowerCase())) && (norm(i.size) === nSize || norm(i.pack_size) === nSize));
+      const exact = items.find((i) => 
+        (!variant || i.item_name?.toLowerCase().includes(variant.toLowerCase()) || i.component_name?.toLowerCase().includes(variant.toLowerCase())) && 
+        (isSizeMatch(i.size, size) || isSizeMatch(i.pack_size, size))
+      );
       if (exact) return exact.rate || 0;
-      const sizeOnly = items.find((i) => norm(i.size) === nSize || norm(i.pack_size) === nSize);
+      
+      const sizeOnly = items.find((i) => isSizeMatch(i.size, size) || isSizeMatch(i.pack_size, size));
       if (sizeOnly) return sizeOnly.rate || 0;
-      return items[0]?.rate || 0;
+      return 0;
     };
 
     setComponents((prevComps) => {
@@ -120,7 +140,8 @@ export default function Step4CostBuilder() {
             variantLabel = `${state.packSizeValue}${state.packSizeUnit} @ ₹${bulkRate}/${product?.rate_unit === 'kg' ? 'Kg' : 'Ltr'}`;
             break;
           case 'Bottle': variantLabel = state.packingVariant || ''; defaultRate = findRate('bottles', state.packingVariant, packSize); break;
-          case 'Ampoule Glass': variantLabel = packSize; defaultRate = findRate('ampoules', 'Ampoule', packSize); break;
+          case 'Ampoule Glass': variantLabel = packSize; defaultRate = findRate('ampoules', 'Glass', packSize); break;
+          case 'Measuring Cap': defaultRate = findRate('measuring_caps', 'Measuring', packSize); break;
           case 'Shrink Cap': defaultRate = findRate('shrink_caps', 'Shrink', packSize); break;
           case 'Carton Box': defaultRate = findRate('cartons', 'Carton', packSize); break;
           case 'Tray': defaultRate = findRate('trays', 'Tray', packSize); break;
@@ -200,7 +221,7 @@ export default function Step4CostBuilder() {
     updateField('components', mapped);
     updateField('customLines', customLines);
 
-    const gstRate = state.product?.gst_rate || 18;
+    const gstRate = state.rows[0]?.gstRate !== undefined ? state.rows[0].gstRate : (state.product?.gst_rate || 18);
     updateField('rows', state.rows.map((r, i) =>
       i === 0
         ? {
@@ -212,7 +233,7 @@ export default function Step4CostBuilder() {
           }
         : r
     ));
-  }, [components, customLines, bulkCost, costPerPcs]);
+  }, [components, customLines, bulkCost, costPerPcs, state.rows[0]?.gstRate]);
 
   const getBreakdownText = (comp) => {
     if (comp.isBulk) return `${state.packSizeValue}${state.packSizeUnit} × ₹${bulkRate}/${product?.rate_unit === 'kg' ? 'Kg' : 'Ltr'} = ₹${bulkCost.toFixed(2)}`;
@@ -323,16 +344,29 @@ export default function Step4CostBuilder() {
                   </div>
                   <hr className="border-border" />
                   <div>
-                    <p className="text-xs text-text-muted">GST ({state.product?.gst_rate || 18}%)</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xs text-text-muted">GST Rate (%)</p>
+                      <input 
+                        type="number" 
+                        min="0"
+                        step="0.1"
+                        className="w-16 px-1 py-0.5 text-xs border rounded text-right focus:outline-none focus:ring-1 focus:ring-primary"
+                        value={state.rows[0]?.gstRate !== undefined ? state.rows[0].gstRate : (state.product?.gst_rate || 18)}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                          updateField('rows', state.rows.map((r, i) => i === 0 ? { ...r, gstRate: val } : r));
+                        }}
+                      />
+                    </div>
                     <p className="font-semibold text-text-secondary">
-                      ₹{(costPerPcs * totalPcs * ((state.product?.gst_rate || 18) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(costPerPcs * totalPcs * ((state.rows[0]?.gstRate !== undefined ? state.rows[0].gstRate : (state.product?.gst_rate || 18)) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <hr className="border-border" />
                   <div>
                     <p className="text-xs text-text-muted">Grand Total</p>
                     <p className="text-xl font-bold text-primary">
-                      ₹{(costPerPcs * totalPcs * (1 + (state.product?.gst_rate || 18) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(costPerPcs * totalPcs * (1 + (state.rows[0]?.gstRate !== undefined ? state.rows[0].gstRate : (state.product?.gst_rate || 18)) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </>

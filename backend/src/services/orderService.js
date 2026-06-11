@@ -112,7 +112,7 @@ async function updateOrderStatus(orderId, newStatus, note, updatedBy) {
 
   // Deduct label inventory if dispatched
   if (newStatus === 'dispatched' && updated.quotation_id) {
-    const labelService = require('./labelService');
+    const pmService = require('./pmService');
     const { data: quotation } = await supabase.from('quotations').select('customer_id').eq('id', updated.quotation_id).single();
     
     if (quotation && quotation.customer_id) {
@@ -123,7 +123,7 @@ async function updateOrderStatus(orderId, newStatus, note, updatedBy) {
           // Deduct regardless of whether the label was checked in this specific quotation
           const packSizeStr = `${row.pack_size_value}${row.pack_size_unit}`;
           try {
-            await labelService.deductLabelStock(
+            await pmService.deductPMStock(
               quotation.customer_id, 
               row.product_id, 
               packSizeStr, 

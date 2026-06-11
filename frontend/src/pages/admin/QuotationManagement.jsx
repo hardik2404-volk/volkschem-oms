@@ -277,7 +277,7 @@ export default function QuotationManagement() {
               <table className="w-full border border-border rounded-lg overflow-hidden">
                 <thead>
                   <tr className="bg-primary text-white">
-                    {['Product', 'Pack Size', 'Qty', 'Bulk Rate', 'Cost/Pcs', 'Label/Pcs', 'Amount', 'GST', 'Total'].map((h) => (
+                    {['Product', 'Pack Size', 'Qty', 'Bulk Rate', 'Cost/Pcs', 'PM/Pcs', 'Amount', 'GST', 'Total'].map((h) => (
                       <th key={h} className="px-3 py-2 text-xs font-semibold text-left">{h}</th>
                     ))}
                   </tr>
@@ -300,8 +300,8 @@ export default function QuotationManagement() {
                       : (selectedQuotation.rows || []);
 
                     return displayRows.map((row, i) => {
-                      const ld = row.label_snapshot;
-                      const labelRate = (ld && ld.is_new_batch && !ld.withoutLabel) ? ld.rate_per_label : 0;
+                      const ld = row.pm_snapshot;
+                      const pmRate = (ld && ld.is_new_batch && !ld.withoutPM) ? ld.rate_per_pm : 0;
                       
                       return (
                       <React.Fragment key={i}>
@@ -314,26 +314,26 @@ export default function QuotationManagement() {
                           <td className="px-3 py-2 text-sm">{selectedQuotation.order_type === 'bulk' ? `${row.total_quantity_ltr_kg || ''} ${row.pack_size_unit || ''}`.trim() : row.total_pcs}</td>
                           <td className="px-3 py-2 text-sm">{formatINR(row.bulk_rate_per_ltr_kg)}</td>
                           <td className="px-3 py-2 text-sm">{formatINR(row.cost_per_pcs)}</td>
-                          <td className="px-3 py-2 text-sm">{formatINR(labelRate)}</td>
+                          <td className="px-3 py-2 text-sm">{formatINR(pmRate)}</td>
                           <td className="px-3 py-2 text-sm font-medium">{formatINR(row.row_amount)}</td>
                           <td className="px-3 py-2 text-sm">{row.gst_rate}%</td>
                           <td className="px-3 py-2 text-sm font-bold">{formatINR(row.row_total_with_gst)}</td>
                         </tr>
-                        {ld && ld.withoutLabel && (
+                        {ld && ld.withoutPM && (
                           <tr className={i % 2 ? 'bg-surface-alt' : ''}>
                             <td colSpan="9" className="px-3 py-2 border-b border-border">
                               <div className="p-2 border border-border rounded bg-surface-alt text-text-secondary text-sm flex justify-between items-center">
-                                <div><span className="font-semibold text-text-primary">Without Label:</span> This product is ordered without a label.</div>
+                                <div><span className="font-semibold text-text-primary">Without PM:</span> This product is ordered without a pm.</div>
                               </div>
                             </td>
                           </tr>
                         )}
-                        {ld && !ld.withoutLabel && (ld.is_new_batch || ld.include_in_quotation) && (
+                        {ld && !ld.withoutPM && (ld.is_new_batch || ld.include_in_quotation) && (
                           <tr className={i % 2 ? 'bg-surface-alt' : ''}>
                             <td colSpan="9" className="px-3 py-2 border-b border-border">
                               <div className={`p-3 border rounded ${ld.is_new_batch ? 'border-warning bg-warning-light/10' : 'border-success bg-success-light/10'}`}>
                                 <div className="flex justify-between items-center mb-2">
-                                  <h4 className="font-semibold text-xs">{ld.is_new_batch ? 'New Label Batch Required' : 'Label Inventory Status'}</h4>
+                                  <h4 className="font-semibold text-xs">{ld.is_new_batch ? 'New PM Batch Required' : 'PM Inventory Status'}</h4>
                                   {ld.is_new_batch && <span className="font-bold text-primary text-xs">+ {formatINR(ld.current_batch_total)}</span>}
                                 </div>
                                 <table className="w-full text-xs text-left">
@@ -352,7 +352,7 @@ export default function QuotationManagement() {
                                       <td className="py-1 text-right">{ld.is_new_batch ? (ld.make_quantity || 0).toLocaleString() : '0'}</td>
                                       <td className="py-1 text-right text-error">{(ld.used_to_date || 0).toLocaleString()}</td>
                                       <td className="py-1 text-right font-medium">{(ld.closing_stock || 0).toLocaleString()}</td>
-                                      {ld.is_new_batch && <td className="py-1 text-right">₹{ld.rate_per_label}</td>}
+                                      {ld.is_new_batch && <td className="py-1 text-right">₹{ld.rate_per_pm}</td>}
                                     </tr>
                                   </tbody>
                                 </table>
@@ -373,13 +373,13 @@ export default function QuotationManagement() {
                 <div className="flex justify-between text-sm"><span className="text-text-secondary">Subtotal:</span><span className="font-medium">{formatINR(selectedQuotation.subtotal)}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-text-secondary">GST:</span><span className="font-medium">{formatINR(selectedQuotation.total_gst)}</span></div>
                 {(() => {
-                  const labelTotal = (selectedQuotation.rows || []).reduce((acc, row) => {
-                    const snap = row.label_snapshot;
+                  const pmTotal = (selectedQuotation.rows || []).reduce((acc, row) => {
+                    const snap = row.pm_snapshot;
                     return acc + (snap && snap.is_new_batch ? (snap.current_batch_total || snap.total_amount || 0) : 0);
                   }, 0);
-                  if (labelTotal > 0) {
+                  if (pmTotal > 0) {
                     return (
-                      <div className="flex justify-between text-sm"><span className="text-text-secondary">Labels Total:</span><span className="font-medium">{formatINR(labelTotal)}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-text-secondary">PMs Total:</span><span className="font-medium">{formatINR(pmTotal)}</span></div>
                     );
                   }
                   return null;
@@ -398,14 +398,14 @@ export default function QuotationManagement() {
       <Modal isOpen={approveOpen} onClose={() => setApproveOpen(false)} title="Approve Quotation"
         footer={<><Button variant="secondary" onClick={() => setApproveOpen(false)}>Cancel</Button><Button variant="success" loading={actionLoading} onClick={handleApprove}>Confirm Approve</Button></>}
       >
-        <Input label="Admin Note (Optional)" type="textarea" value={adminNote} onChange={(e) => setAdminNote(e.target.value)} placeholder="Add note before approving..." rows={4} />
+        <Input pm="Admin Note (Optional)" type="textarea" value={adminNote} onChange={(e) => setAdminNote(e.target.value)} placeholder="Add note before approving..." rows={4} />
       </Modal>
 
       {/* Reject Modal */}
       <Modal isOpen={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject Quotation"
         footer={<><Button variant="secondary" onClick={() => setRejectOpen(false)}>Cancel</Button><Button variant="danger" loading={actionLoading} onClick={handleReject}>Confirm Reject</Button></>}
       >
-        <Input label="Rejection Comment" type="textarea" value={rejectComment} onChange={(e) => setRejectComment(e.target.value)} placeholder="Provide reason for rejection..." rows={4} required />
+        <Input pm="Rejection Comment" type="textarea" value={rejectComment} onChange={(e) => setRejectComment(e.target.value)} placeholder="Provide reason for rejection..." rows={4} required />
       </Modal>
 
       {/* Edit Header Modal */}
@@ -413,10 +413,10 @@ export default function QuotationManagement() {
         footer={<><Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button><Button variant="primary" loading={actionLoading} onClick={handleEditSubmit}>Save Changes</Button></>}
       >
         <div className="space-y-4">
-          <Input label="Customer Name" value={editForm.customer_name} onChange={(e) => setEditForm({...editForm, customer_name: e.target.value})} />
-          <Input label="Destination" value={editForm.destination} onChange={(e) => setEditForm({...editForm, destination: e.target.value})} />
-          <Input label="Transport Name" value={editForm.transport_name} onChange={(e) => setEditForm({...editForm, transport_name: e.target.value})} />
-          <Input label="Grand Total (₹)" type="number" value={editForm.grand_total} onChange={(e) => setEditForm({...editForm, grand_total: parseFloat(e.target.value) || 0})} />
+          <Input pm="Customer Name" value={editForm.customer_name} onChange={(e) => setEditForm({...editForm, customer_name: e.target.value})} />
+          <Input pm="Destination" value={editForm.destination} onChange={(e) => setEditForm({...editForm, destination: e.target.value})} />
+          <Input pm="Transport Name" value={editForm.transport_name} onChange={(e) => setEditForm({...editForm, transport_name: e.target.value})} />
+          <Input pm="Grand Total (₹)" type="number" value={editForm.grand_total} onChange={(e) => setEditForm({...editForm, grand_total: parseFloat(e.target.value) || 0})} />
         </div>
       </Modal>
     </div>

@@ -28,13 +28,13 @@ function CustomerDirectory() {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
 
   const [formData, setFormData] = useState({
-    customer_name: '', gst_pan: '', billing_address: '', contact_number: '', transport_name: '', destination: ''
+    customer_name: '', company_name: '', gst_pan: '', billing_address: '', contact_number: '', transport_name: '', destination: ''
   });
 
   const [addBatchOpen, setAddBatchOpen] = useState(false);
   const [productsList, setProductsList] = useState([]);
   const [batchData, setBatchData] = useState({
-    product_id: '', pack_size: '', pack_type: 'bottle', quantity: '', rate_per_label: '', brand_name: ''
+    product_id: '', pack_size: '', pack_type: 'label', quantity: '', rate_per_label: '', brand_name: ''
   });
 
   const fetchDetails = async (customer) => {
@@ -46,7 +46,7 @@ function CustomerDirectory() {
     try {
       const [historyRes, labelsRes] = await Promise.all([
         api.get(`/customers/${customer.id}/history`),
-        api.get(`/labels/customer/${customer.id}`)
+        api.get(`/pm/customer/${customer.id}`)
       ]);
       setCustomerHistory(historyRes.data.data);
       setCustomerLabels(labelsRes.data.data || []);
@@ -59,7 +59,7 @@ function CustomerDirectory() {
 
   const handleOpenAddBatch = async () => {
     setAddBatchOpen(true);
-    setBatchData({ product_id: '', pack_size: '', pack_type: 'bottle', quantity: '', rate_per_label: '', brand_name: '' });
+    setBatchData({ product_id: '', pack_size: '', pack_type: 'label', quantity: '', rate_per_label: '', brand_name: '' });
     if (productsList.length === 0) {
       try {
         const { data } = await api.get('/products');
@@ -76,21 +76,21 @@ function CustomerDirectory() {
       return;
     }
     if (parseInt(batchData.quantity, 10) < 1000) {
-      toast.error('Minimum batch quantity is 1000 labels.');
+      toast.error('Minimum batch quantity is 1000.');
       return;
     }
     setSaving(true);
     try {
-      await api.post('/labels/inventory', {
+      await api.post('/pm/inventory', {
         ...batchData,
         customer_id: selectedCustomerId,
         batch_quantity: parseInt(batchData.quantity, 10),
         rate_per_label: parseFloat(batchData.rate_per_label) || 0
       });
-      toast.success('Label batch added!');
+      toast.success('Material batch added!');
       setAddBatchOpen(false);
       // Refresh labels
-      const { data } = await api.get(`/labels/customer/${selectedCustomerId}`);
+      const { data } = await api.get(`/pm/customer/${selectedCustomerId}`);
       setCustomerLabels(data.data || []);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add batch');
@@ -128,7 +128,7 @@ function CustomerDirectory() {
       setFormData({ ...customer });
     } else {
       setEditingCustomer(null);
-      setFormData({ customer_name: '', gst_pan: '', billing_address: '', contact_number: '', transport_name: '', destination: '' });
+      setFormData({ customer_name: '', company_name: '', gst_pan: '', billing_address: '', contact_number: '', transport_name: '', destination: '' });
     }
     setIsModalOpen(true);
   };
@@ -169,7 +169,12 @@ function CustomerDirectory() {
   };
 
   const columns = [
-    { key: 'customer_name', header: 'Customer Name', render: (c) => <span className="font-medium text-text-primary">{c.customer_name}</span> },
+    { key: 'customer_name', header: 'Customer', render: (c) => (
+      <div>
+        <div className="font-medium text-text-primary">{c.customer_name}</div>
+        {c.company_name && <div className="text-xs text-text-secondary">{c.company_name}</div>}
+      </div>
+    )},
     { key: 'contact_number', header: 'Contact', render: (c) => c.contact_number || '-' },
     { key: 'gst_pan', header: 'GST / PAN', render: (c) => c.gst_pan || '-' },
     { key: 'transport_dest', header: 'Transport & Dest.', render: (c) => (
@@ -220,14 +225,17 @@ function CustomerDirectory() {
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Customer/Company Name" value={formData.customer_name} onChange={e => setFormData({...formData, customer_name: e.target.value})} required />
-            <Input label="Contact Number" value={formData.contact_number} onChange={e => setFormData({...formData, contact_number: e.target.value})} />
+            <Input label="Customer Name" value={formData.customer_name} onChange={e => setFormData({...formData, customer_name: e.target.value})} required />
+            <Input label="Company Name" value={formData.company_name || ''} onChange={e => setFormData({...formData, company_name: e.target.value})} />
           </div>
-          <Input label="Billing Address" type="textarea" rows={2} value={formData.billing_address} onChange={e => setFormData({...formData, billing_address: e.target.value})} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="GST / PAN No." value={formData.gst_pan} onChange={e => setFormData({...formData, gst_pan: e.target.value})} />
-            <Input label="Transport Name" value={formData.transport_name} onChange={e => setFormData({...formData, transport_name: e.target.value})} />
-            <Input label="Destination (with PIN)" value={formData.destination} onChange={e => setFormData({...formData, destination: e.target.value})} />
+            <Input label="Contact Number" value={formData.contact_number || ''} onChange={e => setFormData({...formData, contact_number: e.target.value})} />
+            <Input label="GST / PAN No." value={formData.gst_pan || ''} onChange={e => setFormData({...formData, gst_pan: e.target.value})} />
+          </div>
+          <Input label="Billing Address" type="textarea" rows={2} value={formData.billing_address || ''} onChange={e => setFormData({...formData, billing_address: e.target.value})} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Transport Name" value={formData.transport_name || ''} onChange={e => setFormData({...formData, transport_name: e.target.value})} />
+            <Input label="Destination (with PIN)" value={formData.destination || ''} onChange={e => setFormData({...formData, destination: e.target.value})} />
           </div>
         </div>
       </Modal>
@@ -251,7 +259,7 @@ function CustomerDirectory() {
             className={`py-2 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === 'labels' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
             onClick={() => setActiveTab('labels')}
           >
-            Label Inventory
+            PM Inventory
           </button>
         </div>
 
@@ -312,9 +320,9 @@ function CustomerDirectory() {
         {activeTab === 'labels' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium text-text-primary">Current Label Stock</h3>
+              <h3 className="font-medium text-text-primary">Current Material Stock</h3>
               {user?.role === 'admin' && (
-                <Button size="sm" icon={Plus} onClick={handleOpenAddBatch}>Add Label Batch</Button>
+                <Button size="sm" icon={Plus} onClick={handleOpenAddBatch}>Add Material Batch</Button>
               )}
             </div>
             
@@ -333,9 +341,9 @@ function CustomerDirectory() {
                 </thead>
                 <tbody>
                   {historyLoading ? (
-                    <tr><td colSpan="7" className="text-center py-8 text-text-secondary">Loading labels...</td></tr>
+                    <tr><td colSpan="7" className="text-center py-8 text-text-secondary">Loading inventory...</td></tr>
                   ) : customerLabels.length === 0 ? (
-                    <tr><td colSpan="7" className="text-center py-8 text-text-secondary">No label inventory found for this customer.</td></tr>
+                    <tr><td colSpan="7" className="text-center py-8 text-text-secondary">No PM inventory found for this customer.</td></tr>
                   ) : (
                     customerLabels.map((l, i) => {
                       const displayClosingStock = (l.total_printed || 0) - (l.used_to_date || 0);
@@ -360,11 +368,11 @@ function CustomerDirectory() {
         )}
       </Modal>
 
-      {/* Add Label Batch Modal */}
+      {/* Add Material Batch Modal */}
       <Modal
         isOpen={addBatchOpen}
         onClose={() => setAddBatchOpen(false)}
-        title="Add Label Batch"
+        title="Add Material Batch"
         footer={
           <>
             <Button variant="secondary" onClick={() => setAddBatchOpen(false)}>Cancel</Button>
@@ -387,17 +395,16 @@ function CustomerDirectory() {
             
             <Input label="Pack Size (e.g. 500ml)" value={batchData.pack_size} onChange={e => setBatchData({...batchData, pack_size: e.target.value})} required />
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">Pack Type</label>
+              <label className="block text-sm font-medium text-text-primary mb-1">Type</label>
               <select className="input" value={batchData.pack_type} onChange={e => setBatchData({...batchData, pack_type: e.target.value})}>
-                <option value="bottle">Bottle</option>
+                <option value="label">Label</option>
                 <option value="pouch">Pouch</option>
-                <option value="drum">Drum</option>
-                <option value="box">Box</option>
+                <option value="bucket">Bucket</option>
               </select>
             </div>
             
             <Input label="Quantity Printed" type="number" value={batchData.quantity} onChange={e => setBatchData({...batchData, quantity: e.target.value})} required />
-            <Input label="Rate per Label (₹)" type="number" step="0.01" value={batchData.rate_per_label} onChange={e => setBatchData({...batchData, rate_per_label: e.target.value})} />
+            <Input label="Rate per Material (₹)" type="number" step="0.01" value={batchData.rate_per_label} onChange={e => setBatchData({...batchData, rate_per_label: e.target.value})} />
           </div>
         </div>
       </Modal>

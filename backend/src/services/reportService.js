@@ -38,7 +38,7 @@ async function generateOrdersExcel(range) {
   sheet.columns = [
     { header: 'Date', key: 'date', width: 15 },
     { header: 'Order ID / Quote No', key: 'order_id', width: 25 },
-    { header: 'Product ID / Code', key: 'product_code', width: 20 },
+    { header: 'Product Code / Code', key: 'product_code', width: 20 },
     { header: 'Product Name', key: 'product_name', width: 35 },
     { header: 'Brand Name', key: 'brand_name', width: 25 },
     { header: 'Packing Type', key: 'packing_type', width: 20 },

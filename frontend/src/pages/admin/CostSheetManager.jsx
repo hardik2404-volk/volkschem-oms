@@ -3,11 +3,12 @@ import { costSheetService } from '../../services/dataService';
 import { InlineLoader } from '../../components/common/Loader';
 import { Check, X, AlertTriangle, Plus, Trash2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 const DEFAULT_CATEGORIES = [
   'Bottles', 'Ampoules', 'Labels', 'Pouches', 'Cartons',
   'FBB Boxes', 'Trays', 'Inner Boxes', 'Outer Boxes',
-  'Shrink Caps', 'Buckets', 'Drums', 'Jars',
+  'Measuring Caps', 'Shrink Caps', 'Buckets', 'Drums', 'Jars',
 ];
 
 const EMPTY_FORM = { item_name: '', size: '', rate: '' };
@@ -17,6 +18,8 @@ export default function CostSheetManager() {
   const [activeTab, setActiveTab] = useState(DEFAULT_CATEGORIES[0]);
   const [rates, setRates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const isReadOnly = user?.role === 'employee';
 
   // Edit state
   const [editingId, setEditingId] = useState(null);
@@ -146,25 +149,29 @@ export default function CostSheetManager() {
     <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Cost Sheet Manager</h1>
-          <p className="text-sm text-text-secondary mt-0.5">View, edit, add, or delete component rates by category</p>
+          <h1 className="text-2xl font-bold text-text-primary">Cost Sheet {isReadOnly ? 'Viewer' : 'Manager'}</h1>
+          <p className="text-sm text-text-secondary mt-0.5">View {isReadOnly ? '' : ', edit, add, or delete '}component rates by category</p>
         </div>
-        <button
-          onClick={() => { setShowAddForm((v) => !v); setAddForm(EMPTY_FORM); setAddErrors({}); }}
-          className="inline-flex items-center gap-2 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
-        >
-          <Plus size={16} />
-          Add Item
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => { setShowAddForm((v) => !v); setAddForm(EMPTY_FORM); setAddErrors({}); }}
+            className="inline-flex items-center gap-2 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            <Plus size={16} />
+            Add Item
+          </button>
+        )}
       </div>
 
       {/* Warning */}
-      <div className="flex items-start gap-3 p-3 mb-4 bg-warning-light border border-warning/20 rounded-lg">
-        <AlertTriangle size={16} className="text-warning flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-warning">
-          Changing or deleting rates only affects <strong>new quotations</strong>. Existing approved quotations keep their original rates.
-        </p>
-      </div>
+      {!isReadOnly && (
+        <div className="flex items-start gap-3 p-3 mb-4 bg-warning-light border border-warning/20 rounded-lg">
+          <AlertTriangle size={16} className="text-warning flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-warning">
+            Changing or deleting rates only affects <strong>new quotations</strong>. Existing approved quotations keep their original rates.
+          </p>
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="flex flex-wrap items-center gap-1 mb-4 bg-white rounded-lg border border-border p-1">
@@ -180,32 +187,35 @@ export default function CostSheetManager() {
           </button>
         ))}
         
-        {showAddCategory ? (
-          <div className="flex items-center ml-2 bg-surface-alt rounded border border-primary/30 px-1 py-1">
-            <input 
-              type="text" 
-              autoFocus
-              className="text-sm bg-transparent border-none focus:outline-none focus:ring-0 w-32 px-2 py-1"
-              placeholder="Category Name"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-            />
-            <button onClick={handleAddCategory} className="text-success hover:bg-success-light p-1 rounded">
-              <Check size={16} />
+
+        {!isReadOnly && (
+          showAddCategory ? (
+            <div className="flex items-center ml-2 bg-surface-alt rounded border border-primary/30 px-1 py-1">
+              <input 
+                type="text" 
+                autoFocus
+                className="text-sm bg-transparent border-none focus:outline-none focus:ring-0 w-32 px-2 py-1"
+                placeholder="Category Name"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+              />
+              <button onClick={handleAddCategory} className="text-success hover:bg-success-light p-1 rounded">
+                <Check size={16} />
+              </button>
+              <button onClick={() => { setShowAddCategory(false); setNewCategory(''); }} className="text-text-muted hover:text-error p-1 rounded">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddCategory(true)}
+              className="px-3 py-2 text-sm font-medium rounded-md text-primary hover:bg-primary/10 transition-colors flex items-center gap-1 ml-1"
+              title="Add Custom Category"
+            >
+              <Plus size={16} />
             </button>
-            <button onClick={() => { setShowAddCategory(false); setNewCategory(''); }} className="text-text-muted hover:text-error p-1 rounded">
-              <X size={16} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAddCategory(true)}
-            className="px-3 py-2 text-sm font-medium rounded-md text-primary hover:bg-primary/10 transition-colors flex items-center gap-1 ml-1"
-            title="Add Custom Category"
-          >
-            <Plus size={16} />
-          </button>
+          )
         )}
       </div>
 
@@ -286,15 +296,15 @@ export default function CostSheetManager() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Size</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Rate (₹)</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Last Updated</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase w-32">Actions</th>
+                {!isReadOnly && <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase w-32">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {rates.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-text-muted text-sm">
+                  <td colSpan={isReadOnly ? 4 : 5} className="px-4 py-10 text-center text-text-muted text-sm">
                     No rates found for <strong>{activeTab}</strong>.{' '}
-                    <button className="text-primary hover:underline" onClick={() => setShowAddForm(true)}>Add the first one</button>.
+                    {!isReadOnly && <button className="text-primary hover:underline" onClick={() => setShowAddForm(true)}>Add the first one</button>}
                   </td>
                 </tr>
               ) : (
@@ -328,30 +338,32 @@ export default function CostSheetManager() {
                     <td className="px-4 py-3 text-sm text-text-secondary">
                       {item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {editingId !== item.id && (
+                    {!isReadOnly && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {editingId !== item.id && (
+                            <button
+                              onClick={() => startEdit(item)}
+                              className="px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-md hover:bg-primary/5 transition-colors"
+                            >
+                              Edit
+                            </button>
+                          )}
                           <button
-                            onClick={() => startEdit(item)}
-                            className="px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-md hover:bg-primary/5 transition-colors"
+                            onClick={() => {
+                              if (window.confirm(`Delete "${item.item_name || item.component_name} — ${item.size || item.pack_size}"? This cannot be undone.`)) {
+                                handleDelete(item.id);
+                              }
+                            }}
+                            disabled={deletingId === item.id}
+                            className="p-1.5 text-error hover:bg-error-light rounded-md transition-colors disabled:opacity-50"
+                            title="Delete item"
                           >
-                            Edit
+                            <Trash2 size={14} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Delete "${item.item_name || item.component_name} — ${item.size || item.pack_size}"? This cannot be undone.`)) {
-                              handleDelete(item.id);
-                            }
-                          }}
-                          disabled={deletingId === item.id}
-                          className="p-1.5 text-error hover:bg-error-light rounded-md transition-colors disabled:opacity-50"
-                          title="Delete item"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

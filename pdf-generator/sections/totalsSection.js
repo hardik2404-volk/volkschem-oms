@@ -51,27 +51,29 @@ function generateTotalsSection(doc, quotationData, startY) {
     qtyLabel = 'Total Qty (Pcs)';
   }
 
-  // Calculate Label Total
-  let labelTotal = 0;
+  // Calculate PM Total
+  let pmTotal = 0;
   if (quotationData.rows) {
     quotationData.rows.forEach(r => {
-      if (r.label_snapshot && !r.label_snapshot.withoutLabel && !r.label_snapshot.without_label) {
-        const snap = r.label_snapshot;
+      if (r.pm_snapshot && !r.pm_snapshot.withoutPM && !r.pm_snapshot.without_pm) {
+        const snap = r.pm_snapshot;
         if (snap.is_new_batch) {
-          labelTotal += (snap.current_batch_total || snap.total_amount || 0);
+          pmTotal += (snap.current_batch_total || snap.total_amount || 0);
         }
       }
     });
   }
 
+  // Calculate Product Total (Subtotal + GST)
+  const productTotal = (quotationData.subtotal || 0) + (quotationData.total_gst || 0);
+
   // Draw Totals Rows
   const startTotalsY = currentY;
   drawRow(qtyLabel, totalQty, false, false);
-  drawRow('Subtotal', quotationData.subtotal);
-  drawRow('GST 18%', quotationData.total_gst || 0);
+  drawRow('Product Total', productTotal);
   
-  if (labelTotal > 0) {
-    drawRow('Label Total', labelTotal);
+  if (pmTotal > 0) {
+    drawRow('PM Total', pmTotal);
   }
   
   drawRow('Grand Total', quotationData.grand_total, true);

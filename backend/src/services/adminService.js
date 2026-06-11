@@ -158,7 +158,7 @@ async function deleteStaff(id, adminId) {
       { table: 'cost_sheet_rates', col: 'updated_by' },
       { table: 'quotations', col: 'created_by' },
       { table: 'quotations', col: 'confirmed_by' },
-      { table: 'label_transactions', col: 'created_by' },
+      { table: 'pm_transactions', col: 'created_by' },
       { table: 'orders', col: 'confirmed_by' },
       { table: 'order_progress', col: 'updated_by' },
       { table: 'lr_attachments', col: 'uploaded_by' },

@@ -84,7 +84,7 @@ export default function FactoryOrdersList() {
         {r.id.substring(r.id.length - 8).toUpperCase()}
       </button>
     )},
-    { key: 'product_id', header: 'Product ID', render: (r) => {
+    { key: 'product_id', header: 'Product Code', render: (r) => {
       const rows = r.quotations?.quotation_rows || [];
       const productIds = Array.from(new Set(rows.map(row => row.products?.product_code).filter(Boolean)));
       return productIds.length > 0 ? productIds.join(', ') : '-';

@@ -10,7 +10,7 @@ const path = require('path');
  * @param {PDFDocument} doc
  * @param {Object} quotationData
  */
-function generateHeader(doc, quotationData) {
+function generateHeader(doc, quotationData, titleText = 'QUOTATION') {
   const pageWidth = doc.page.width;
   const margin = 30;
   let currentY = 0; // Start right at the top
@@ -18,8 +18,7 @@ function generateHeader(doc, quotationData) {
   // ── Top Header Bar ──────────────────────────────────────────────────────
   const headerHeight = 100;
 
-  // Background Dark Green Bar
-  doc.rect(0, currentY, pageWidth, headerHeight).fill('#1B5E20');
+  // Background Dark Green Bar removed as requested
 
   // Left side: Logo Box
   // Draw a white box for the logo to sit inside
@@ -36,7 +35,7 @@ function generateHeader(doc, quotationData) {
   }
 
   // Right side: Address
-  doc.font('NotoSans').fontSize(8).fillColor('#FFFFFF');
+  doc.font('NotoSans').fontSize(8).fillColor('#000000');
   const rightMargin = pageWidth - margin;
 
   // Custom alignment for address text within the dark bar
@@ -52,7 +51,7 @@ function generateHeader(doc, quotationData) {
 
   doc.font('NotoSans-Bold').fontSize(16).fillColor('#333333');
   // Center text perfectly in the gray bar
-  doc.text('QUOTATION', 0, currentY + 7, { align: 'center', width: pageWidth });
+  doc.text(titleText.toUpperCase(), 0, currentY + 7, { align: 'center', width: pageWidth });
 
   currentY += titleBarHeight;
 

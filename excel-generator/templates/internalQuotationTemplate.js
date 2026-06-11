@@ -155,6 +155,7 @@ async function generateInternalExcel(quotationData) {
   const bulkColor = hasAmpoule ? cGold : cLightGreen;
   addHeader('BULK MATERIAL RATE LTR/KG', bulkColor, 15);
   addHeader('PACKING SIZE', bulkColor, 15);
+  addHeader('USED PM', bulkColor, 15);
   addHeader('BULK MATERIAL RATE PER UNIT', bulkColor, 15);
 
   compArray.forEach(compName => {
@@ -177,6 +178,15 @@ async function generateInternalExcel(quotationData) {
 
   // ── DATA ROWS ──
   const startRowIdx = sheet.lastRow.number;
+  
+  const productTotals = {};
+  quotationData.rows.forEach(row => {
+    const pCode = row.products?.product_code || row.product?.product_code || quotationData.products?.product_code || '-';
+    const pName = row.products?.product_name || row.product?.product_name || quotationData.products?.product_name || quotationData.material_name || '-';
+    const key = pCode !== '-' ? pCode : pName;
+    if (!productTotals[key]) productTotals[key] = 0;
+    productTotals[key] += (row.total_quantity_ltr_kg || 0);
+  });
 
   quotationData.rows.forEach(row => {
     const dataRow = sheet.addRow([]);
@@ -191,8 +201,19 @@ async function generateInternalExcel(quotationData) {
       cIdx++;
     };
 
-    const packLtrKg = row.pack_size_value * parseUnitMultiplier(row.pack_size_unit);
-    const totalLtrKg = row.total_pcs * packLtrKg;
+    let nosPerCarton = row.nos_per_carton || 0;
+    const isAmpoule = row.packing_type && row.packing_type.toLowerCase().includes('ampoule');
+    if (isAmpoule) {
+      const pSize = `${row.pack_size_value}${row.pack_size_unit?.toLowerCase()}`;
+      const spec = AMPOULE_PACKAGING[pSize] || AMPOULE_PACKAGING['10ml'];
+      nosPerCarton = spec.outerBoxPcs;
+    }
+
+    const packWise = row.total_quantity_ltr_kg || 0;
+    const pCode = row.products?.product_code || row.product?.product_code || quotationData.products?.product_code || '-';
+    const pName = row.products?.product_name || row.product?.product_name || quotationData.products?.product_name || quotationData.material_name || '-';
+    const key = pCode !== '-' ? pCode : pName;
+    const productTotalLtrKg = productTotals[key] || 0;
 
     let prodName = row.products?.product_name || quotationData.product_name || quotationData.material_name || (quotationData.order_type === 'bulk' ? row.packing_type : null) || '';
     if (quotationData.order_type === 'bulk' && row.container_variant) {
@@ -201,18 +222,26 @@ async function generateInternalExcel(quotationData) {
     addCell(prodName);
     
     addCell(row.products?.product_code || row.product?.product_code || quotationData.products?.product_code || '-');
-    addCell(quotationData.name_on_label || quotationData.brand_name || '');
+    addCell(quotationData.name_on_label || row.product?.brand_name || prodName || '-');
     addCell(row.products?.technical_combination || quotationData.technical_combination || '-');
     addCell(row.mrp || 0, true);
-    addCell(row.nos_per_carton || 0);
+    addCell(nosPerCarton);
     addCell(row.packing_type || '');
     addCell(row.bulk_rate_per_ltr_kg || 0, true);
     addCell(quotationData.order_type === 'bulk' ? 'Bulk' : `${row.pack_size_value || ''} ${row.pack_size_unit || ''}`.trim());
+    
+    const pmSnapshot = row.pm_snapshot || row.label_snapshot;
+    if (pmSnapshot && !pmSnapshot.withoutPM) {
+        addCell(row.total_pcs);
+    } else {
+        addCell('-');
+    }
+    
     addCell(row.bulk_material_cost_per_pcs || 0, true);
 
     compArray.forEach(compName => {
       const comp = row.components.find(c => c.component_name === compName && c.is_checked);
-      addCell(comp ? comp.applied_rate : 0, true);
+      addCell(comp ? comp.cost_per_pcs : 0, true);
     });
 
     addCell(row.cost_per_pcs || 0, true);
@@ -229,12 +258,12 @@ async function generateInternalExcel(quotationData) {
     addCell(row.row_total_with_gst || 0, true);
     
     if (quotationData.order_type === 'bulk' || quotationData.order_type === 'bulk_material') {
-      addCell(packLtrKg ? Number(packLtrKg.toFixed(4)) : '-');
-      addCell(row.total_quantity_ltr_kg || totalLtrKg || '-');
+      addCell(packWise ? Number(packWise.toFixed(4)) : '-');
+      addCell(productTotalLtrKg ? Number(productTotalLtrKg.toFixed(4)) : '-');
       addCell(row.total_pcs || '-');
     } else {
-      addCell(packLtrKg ? Number(packLtrKg.toFixed(4)) : '-');
-      addCell(totalLtrKg ? Number(totalLtrKg.toFixed(4)) : '-');
+      addCell(packWise ? Number(packWise.toFixed(4)) : '-');
+      addCell(productTotalLtrKg ? Number(productTotalLtrKg.toFixed(4)) : '-');
       addCell(row.total_cases || 0);
     }
   });
@@ -277,7 +306,10 @@ async function generateInternalExcel(quotationData) {
   let totalLabelPayable = 0;
   
   if (quotationData.rows && quotationData.rows.length > 0) {
-    const labelRows = quotationData.rows.filter(r => r.label_snapshot && !r.label_snapshot.withoutLabel && !r.label_snapshot.without_label);
+    const labelRows = quotationData.rows.filter(r => {
+      const snap = r.pm_snapshot || r.label_snapshot;
+      return snap && !snap.withoutLabel && !snap.without_label;
+    });
     if (labelRows.length > 0) {
       // Shift so that Label 'AMOUNT' aligns with Product 'AMOUNT' (which is 10 + length + 3)
       // Label 'AMOUNT' is offset + 10. So offset + 10 = 13 + compArray.length.
@@ -313,7 +345,7 @@ async function generateInternalExcel(quotationData) {
       }
 
       labelRows.forEach(row => {
-        const snap = row.label_snapshot;
+        const snap = row.pm_snapshot || row.label_snapshot;
         const brandName = quotationData.name_on_label || quotationData.brand_name || row.products?.product_name || '';
         
         let rate = 0, amount = 0, gst = 0;

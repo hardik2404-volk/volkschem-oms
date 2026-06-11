@@ -6,7 +6,7 @@ const PDFDocument = require('pdfkit');
 const { generateHeader } = require('../sections/headerSection');
 const { generateCustomerSection } = require('../sections/customerSection');
 const { generateProductTable } = require('../sections/productTableSection');
-const { generateLabelInventorySection } = require('../sections/labelInventorySection');
+const { generatePMInventorySection } = require('../sections/pmInventorySection');
 
 /**
  * Generate a Factory Production Order PDF.
@@ -38,10 +38,10 @@ function generateSupervisorOrderPDF(quotationData) {
       let currentY = 0;
 
       // 1. Header
-      currentY = generateHeader(doc, quotationData);
+      currentY = generateHeader(doc, quotationData, 'Supervisor Sheet');
 
-      // 2. Customer Section (Title 'Supervisor PDF')
-      currentY = generateCustomerSection(doc, quotationData, currentY, 'Supervisor PDF');
+      // 2. Customer Section (No second title)
+      currentY = generateCustomerSection(doc, quotationData, currentY, null);
 
       // 3. Product Table (isFactoryView = true)
       currentY = generateProductTable(doc, quotationData, currentY, true);
@@ -69,14 +69,14 @@ function generateSupervisorOrderPDF(quotationData) {
       // Append Ampoule Structure
       currentY = generateAmpouleStructureSection(doc, quotationData, currentY);
 
-      // 5. Label Inventory (Optional - factory needs to see label counts)
+      // 5. PM Inventory (Optional - factory needs to see label counts)
       if (quotationData.rows && quotationData.rows.length > 0) {
-        const labelDataArray = [];
+        const pmDataArray = [];
         quotationData.rows.forEach((snapshotRow) => {
-          if (snapshotRow.label_snapshot && !snapshotRow.label_snapshot.withoutLabel && !snapshotRow.label_snapshot.without_label) {
-            const snap = snapshotRow.label_snapshot;
+          if (snapshotRow.pm_snapshot && !snapshotRow.pm_snapshot.withoutPM && !snapshotRow.pm_snapshot.without_pm) {
+            const snap = snapshotRow.pm_snapshot;
             // Removed isNewBatch filter to show ALL label inventory
-            labelDataArray.push({
+            pmDataArray.push({
               product_name: snapshotRow.products?.product_name || '-',
               pack_type: snap.pack_type,
               pack_size: snap.pack_size,
@@ -88,8 +88,8 @@ function generateSupervisorOrderPDF(quotationData) {
             });
           }
         });
-        if (labelDataArray.length > 0) {
-          currentY = generateLabelInventorySection(doc, labelDataArray, currentY, true); // true = isFactoryView
+        if (pmDataArray.length > 0) {
+          currentY = generatePMInventorySection(doc, pmDataArray, currentY, true); // true = isFactoryView
         }
       }
 

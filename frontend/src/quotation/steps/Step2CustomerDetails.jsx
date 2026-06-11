@@ -29,8 +29,8 @@ export default function Step2CustomerDetails() {
     const c = customers.find(x => x.id === selectedId);
     if (c) {
       updateHeader('customer_id', c.id);
-      updateHeader('billing_name', c.customer_name);
-      updateHeader('customer_name', c.customer_name);
+      updateHeader('billing_name', c.company_name || '');
+      updateHeader('customer_name', c.customer_name || '');
       updateHeader('customer_contact', c.contact_number || '');
       updateHeader('gst_pan', c.gst_pan || '');
       updateHeader('billing_address', c.billing_address || '');
@@ -47,7 +47,8 @@ export default function Step2CustomerDetails() {
       // Auto fill only if currently empty to avoid overwriting user input
       let filled = false;
       if (!h.customer_id) { updateHeader('customer_id', c.id); filled = true; }
-      if (!h.billing_name) { updateHeader('billing_name', c.customer_name); filled = true; }
+      if (!h.billing_name && c.company_name) { updateHeader('billing_name', c.company_name); filled = true; }
+      if (!h.customer_name && c.customer_name) { updateHeader('customer_name', c.customer_name); filled = true; }
       if (!h.customer_contact && c.contact_number) { updateHeader('customer_contact', c.contact_number); filled = true; }
       if (!h.gst_pan && c.gst_pan) { updateHeader('gst_pan', c.gst_pan); filled = true; }
       if (!h.billing_address && c.billing_address) { updateHeader('billing_address', c.billing_address); filled = true; }
@@ -84,7 +85,7 @@ export default function Step2CustomerDetails() {
           </div>
         ) : (
           <Input
-            label="Company / Billing Name"
+            label="Company Name / Billing Name"
             value={h.billing_name}
             onChange={(e) => updateHeader('billing_name', e.target.value)}
             placeholder="Enter client company name"

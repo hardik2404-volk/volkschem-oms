@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuotation } from '../../context/QuotationContext';
-import { costSheetService, labelService } from '../../services/dataService';
+import { costSheetService } from '../../services/dataService';
 import PackingTypeSelector from '../components/PackingTypeSelector';
 import Input from '../../components/common/Input';
 import { CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { AMPOULE_PACKAGING } from '../../utils/constants';
-import LabelManagementBlock from '../components/LabelManagementBlock';
+import PMManagementBlock from '../components/PMManagementBlock';
 
 // ── Variants & Sizes ─────────────────────────────────────────────────────────
 const BOTTLE_VARIANTS = [
@@ -23,8 +23,6 @@ const JAR_SIZES = ['1kg', '500gm', '250gm'];
 const BUCKET_SIZES = ['20Kg', '15Kg', '10Kg', '5Kg'];
 const DRUM_SIZES = ['200Ltr', '50Ltr', '35Ltr', '25Ltr', '15Ltr', '10Ltr', '5Ltr'];
 
-// Packing types that never need labels
-const NO_LABEL_TYPES = ['Bucket', 'Drum', 'Pouch'];
 
 // Unit label for quantity input based on packing type
 function getQtyUnit(packingType) {
@@ -67,7 +65,6 @@ export default function Step3PackingAndQuantity() {
     updateField('packSize', '');
     updateField('packSizeValue', 0);
     updateField('packSizeUnit', '');
-    updateField('labelCheckResult', null);
     // Reset rows when packing type changes
     updateField('rows', []);
     initialized.current = false;
@@ -366,7 +363,7 @@ export default function Step3PackingAndQuantity() {
       {/* Label Management Section(s) */}
       {state.rows.map((row, index) => {
         const globalRowIndex = state.lineItems.length + index;
-        return <LabelManagementBlock key={index} rowIndex={globalRowIndex} row={row} />;
+        return <PMManagementBlock key={index} rowIndex={globalRowIndex} row={row} />;
       })}
     </div>
   );

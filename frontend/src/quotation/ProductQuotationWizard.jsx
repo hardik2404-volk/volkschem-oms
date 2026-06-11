@@ -44,16 +44,15 @@ function WizardContent() {
         const hasBase = !!state.packingType && !!state.packSize && state.rows?.length > 0 && state.rows.every((r) => r.totalPcs > 0);
         if (!hasBase) return false;
         
-        const NO_LABEL_TYPES = ['Bucket', 'Drum', 'Pouch'];
         const customerId = state.customer_id || state.header?.customer_id;
-        if (!NO_LABEL_TYPES.includes(state.packingType) && customerId) {
+        if (customerId) {
           return state.rows.every((_, i) => {
             const globalRowIndex = state.lineItems.length + i;
-            const ld = state.labelDataArray?.[globalRowIndex];
+            const ld = state.pmDataArray?.[globalRowIndex];
             if (!ld) return false;
-            if (ld.withoutLabel) return true;
+            if (ld.withoutPM) return true;
             if (ld.isNewBatch || !ld.sufficient) {
-              return ld.batchQuantity >= 1000 && parseFloat(ld.ratePerLabel) > 0;
+              return ld.batchQuantity >= 1000 && parseFloat(ld.ratePerPM) >= 0;
             }
             return true;
           });

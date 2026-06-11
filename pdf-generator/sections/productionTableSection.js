@@ -48,8 +48,7 @@ function drawRetailTable(doc, quotationData, startY, margin, dynamicComponents) 
   
   const cols = [
     { label: 'PRODUCT NAME', key: 'product_name', width: 100 },
-    { label: 'BRAND NAME', key: 'brand_name', width: 70 },
-    { label: 'DOSE', key: 'dose', width: 40 },
+    { label: 'BRAND NAME', key: 'brand_name', width: 80 },
     { label: 'MRP', key: 'mrp', width: 35 },
     { label: 'NO.OF PCS\nPER CARTON', key: 'nos_per_carton', width: 50 },
     { label: 'PACKIGING\nTYPE', key: 'packing_type', width: 65 },
@@ -68,7 +67,9 @@ function drawRetailTable(doc, quotationData, startY, margin, dynamicComponents) 
   });
 
   compArray.forEach(comp => {
-    cols.push({ label: comp, key: `chk_${comp}`, width: 40 });
+    let label = comp;
+    if (comp === 'AMPOULE GLASS') label = 'AMPOULE';
+    cols.push({ label: label, key: `chk_${comp}`, width: 40 });
   });
   
   // Totals
@@ -84,10 +85,9 @@ function drawBulkBrandTable(doc, quotationData, startY, margin) {
   let currentY = startY;
   const cols = [
     { label: 'Sr', key: 'sr', width: 25 },
-    { label: 'Product Name', key: 'product_name', width: 140 },
+    { label: 'Product Name', key: 'product_name', width: 160 },
     { label: 'Product ID', key: 'product_code', width: 70 },
-    { label: 'Brand Name', key: 'brand_name', width: 80 },
-    { label: 'Dose', key: 'dose', width: 60 },
+    { label: 'Brand Name', key: 'brand_name', width: 100 },
     { label: 'Packaging Type', key: 'packing_type', width: 90 },
     { label: 'Packing Size', key: 'pack_size', width: 60 },
     { label: 'Total Qty (Pcs)', key: 'total_pcs', width: 60 },
@@ -141,6 +141,15 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
 
   // ROWS
   doc.font('NotoSans').fontSize(8);
+  
+  const productTotals = {};
+  quotationData.rows.forEach(row => {
+    const pCode = row.products?.product_code || quotationData.products?.product_code || '-';
+    const pName = row.products?.product_name || quotationData.products?.product_name || quotationData.material_name || '-';
+    const key = pCode !== '-' ? pCode : pName;
+    if (!productTotals[key]) productTotals[key] = 0;
+    productTotals[key] += (row.total_quantity_ltr_kg || 0);
+  });
 
   quotationData.rows.forEach((row, index) => {
     if (currentY > doc.page.height - 100) {
@@ -149,8 +158,19 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     }
 
     const rowData = {};
-    const packLtrKg = row.pack_size_value * parseUnitMultiplier(row.pack_size_unit);
-    const totalLtrKg = row.total_pcs * packLtrKg;
+    let nosPerCartonForMath = row.nos_per_carton || 1;
+    const isAmpoule = row.packing_type && row.packing_type.toLowerCase().includes('ampoule');
+    if (isAmpoule) {
+      const pSize = `${row.pack_size_value}${row.pack_size_unit?.toLowerCase()}`;
+      const spec = AMPOULE_PACKAGING[pSize] || AMPOULE_PACKAGING['10ml'];
+      nosPerCartonForMath = spec.outerBoxPcs;
+    }
+    
+    const packWise = row.total_quantity_ltr_kg || 0;
+    const pCode = row.products?.product_code || quotationData.products?.product_code || '-';
+    const pName = row.products?.product_name || quotationData.products?.product_name || quotationData.material_name || '-';
+    const key = pCode !== '-' ? pCode : pName;
+    const productTotalLtrKg = productTotals[key] || 0;
     
     rowData['sr'] = index + 1;
     rowData['product_code'] = row.products?.product_code || quotationData.products?.product_code || '-';
@@ -167,7 +187,9 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     else if (quotationData.brand_name) brandName = quotationData.brand_name;
     else if (row.brand_name) brandName = row.brand_name;
     else if (row.products?.brand_name) brandName = row.products?.brand_name;
-    else brandName = quotationData.billing_name || '-';
+    else brandName = prodName;
+    
+    if (!brandName || brandName === '-') brandName = prodName;
     
     if (isRetail) {
       rowData['product_name'] = prodName;
@@ -181,7 +203,6 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     rowData['mrp'] = row.mrp || '-';
     
     // Set nos_per_carton based on ampoule or standard
-    const isAmpoule = row.packing_type && row.packing_type.toLowerCase() === 'ampoule';
     let spec = null;
     let computedTotalCases = row.total_cases || '-';
     
@@ -224,13 +245,13 @@ function renderTableGrid(doc, quotationData, currentY, margin, columns, isRetail
     });
 
     rowData['total_pcs'] = row.total_pcs || '-';
-    rowData['pack_wise'] = packLtrKg ? Number(packLtrKg.toFixed(4)) : '-';
-    rowData['total_ltr'] = totalLtrKg ? Number(totalLtrKg.toFixed(4)) : '-';
+    rowData['pack_wise'] = packWise ? Number(packWise.toFixed(4)) : '-';
+    rowData['total_ltr'] = productTotalLtrKg ? Number(productTotalLtrKg.toFixed(4)) : '-';
     
     // Total Cases for Pure Bulk is DRUMS/BAGS count, which is total_pcs here (e.g. 7 drums of 25kg)
     if (quotationData.order_type === 'bulk' || quotationData.order_type === 'bulk_material') {
       rowData['total_cases'] = row.total_pcs || '-';
-      rowData['total_ltr'] = row.total_quantity_ltr_kg || totalLtrKg || '-';
+      // pack_wise and total_ltr already set correctly above
     } else {
       rowData['total_cases'] = computedTotalCases;
     }

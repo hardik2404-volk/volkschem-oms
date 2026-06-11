@@ -99,7 +99,7 @@ async function createRate({ category, item_name, size, rate }, createdBy) {
       item_name,
       size,
       rate,
-      created_by: createdBy,
+      updated_by: createdBy,
     })
     .select('*')
     .single();
