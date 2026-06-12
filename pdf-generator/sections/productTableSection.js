@@ -224,6 +224,31 @@ function generateProductTable(doc, quotationData, startY, isFactoryView = false)
     currentY += rowHeight;
   });
 
+  // ── Total Production Amount ──
+  let totalProductionAmount = 0;
+  (quotationData.rows || []).forEach(r => {
+      totalProductionAmount += (r.row_total_with_gst || 0);
+  });
+
+  const boxSpanWidth = columns[columns.length - 1].width + columns[columns.length - 2].width;
+  const totalBoxX = margin + pageWidth - boxSpanWidth;
+  const totalBoxY = currentY;
+  const totalBoxHeight = 25;
+  
+  if (currentY + totalBoxHeight > doc.page.height - 50) {
+    doc.addPage();
+    currentY = 40;
+  }
+
+  doc.rect(totalBoxX, currentY, boxSpanWidth, totalBoxHeight).fillAndStroke('#D4EDDA', '#2E7D32');
+  
+  doc.fillColor('#000000').font('NotoSans-Bold').fontSize(10);
+  doc.text(totalProductionAmount.toFixed(2), totalBoxX, currentY + 7, { width: boxSpanWidth, align: 'center' });
+  
+  doc.text("Total Production Amount:", margin, currentY + 7, { width: pageWidth - boxSpanWidth - 10, align: 'right' });
+
+  currentY += totalBoxHeight + 10;
+
   return currentY;
 }
 

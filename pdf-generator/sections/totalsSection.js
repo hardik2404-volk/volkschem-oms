@@ -14,7 +14,7 @@ function generateTotalsSection(doc, quotationData, startY) {
 
   // ── Totals Box (Right Aligned) ───────────────────────────────────
   // We want to align this roughly with the end of the table
-  const boxWidth = 200;
+  const boxWidth = 240;
   const boxX = margin + pageWidth - boxWidth;
   const rowHeight = 25;
 
@@ -76,7 +76,7 @@ function generateTotalsSection(doc, quotationData, startY) {
     drawRow('PM Total', pmTotal);
   }
   
-  drawRow('Grand Total', quotationData.grand_total, true);
+  drawRow('Grand Total (Including GST)', quotationData.grand_total, true);
 
   const endTotalsY = currentY;
 
